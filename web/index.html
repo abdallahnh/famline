@@ -88,7 +88,12 @@ async function createPC(isVideo){
     rtcpMuxPolicy:'require'
   });
   pc._q=[]; pc._remoteSet=false;
-  pc.onicecandidate=e=>{if(e.candidate&&ws&&ws.readyState===1) ws.send(JSON.stringify({type:'ice',familyCode:getCurrentCode(),candidate:e.candidate}))};
+  pc.onicecandidate=e=>{
+  if(e.candidate&&ws&&ws.readyState===1){
+    const ch=window._currentCallChannel||getCurrentCode();
+    ws.send(JSON.stringify({type:'ice',familyCode:getCurrentCode(),callChannel:ch,candidate:e.candidate}))
+  }
+};
   pc.oniceconnectionstatechange=()=>{if(pc.iceConnectionState==='failed')pc.restartIce();};
   pc.ontrack=e=>{
     console.log('ontrack', e.track.kind);
@@ -132,19 +137,26 @@ async function createPC(isVideo){
   return pc;
 }
 async function startCall(isVideo){
+  const callerName=getCurrentUser()?.name||'unknown';
+  window._currentCallChannel=getCurrentCode()+'_call_'+callerName+'_'+Date.now();
+  console.log('Starting call on caller channel', window._currentCallChannel);
   document.getElementById('callModal').classList.add('show');
   document.getElementById('callTitle').textContent=isVideo?'Video - Nehme':'Voice - Nehme';
-  document.getElementById('callStatus').textContent='Getting mic...';
+  document.getElementById('callStatus').textContent='Starting on channel '+window._currentCallChannel;
   try{
     await createPC(isVideo);
     const offer=await pc.createOffer({offerToReceiveAudio:true, offerToReceiveVideo:isVideo});
     await pc.setLocalDescription(offer);
-    document.getElementById('callStatus').textContent='Calling family... waiting';
-    if(ws&&ws.readyState===1) ws.send(JSON.stringify({type:'call-offer',familyCode:getCurrentCode(),offer:offer,isVideo:isVideo,from:getCurrentUser()?.name}));
-  }catch(e){console.error(e); alert('Call failed: '+e.message); endCall();}
+    document.getElementById('callStatus').textContent='Calling on '+callerName+' channel...';
+    if(ws&&ws.readyState===1){
+      ws.send(JSON.stringify({type:'call-offer',familyCode:getCurrentCode(),callChannel:window._currentCallChannel,offer:offer,isVideo:isVideo,from:callerName}));
+    }
+  }catch(e){alert('Call failed: '+e.message); endCall();}
 }
 async function handleOffer(m){
   if(document.getElementById('callModal').classList.contains('show')) return;
+  if(m.callChannel){window._currentCallChannel=m.callChannel;}
+  else {window._currentCallChannel=getCurrentCode()+'_call_'+(m.from||'unknown')+'_'+Date.now();}
   sessionStorage.setItem('pendingCall', JSON.stringify(m));
   if(!confirm(`${m.from||'Family'} calling ${m.isVideo?'video':'voice'}. Answer?`)){if(ws) ws.send(JSON.stringify({type:'call-declined',familyCode:getCurrentCode()})); sessionStorage.removeItem('pendingCall'); return;}
   document.getElementById('callModal').classList.add('show');
@@ -157,20 +169,38 @@ async function handleOffer(m){
     if(pc._q.length){for(const c of pc._q){try{await pc.addIceCandidate(new RTCIceCandidate(c))}catch{}} pc._q=[];}
     const ans=await pc.createAnswer();
     await pc.setLocalDescription(ans);
-    if(ws) ws.send(JSON.stringify({type:'call-answer',familyCode:getCurrentCode(),answer:ans,from:getCurrentUser()?.name}));
+    if(ws) ws.send(JSON.stringify({type:'call-answer',familyCode:getCurrentCode(),callChannel:window._currentCallChannel,answer:ans,from:getCurrentUser()?.name}));
     document.getElementById('callStatus').textContent='Connecting P2P...';
     sessionStorage.removeItem('pendingCall');
   }catch(e){console.error(e); alert('Answer failed: '+e.message); endCall(); sessionStorage.removeItem('pendingCall');}
 }
 function endCall(){
+  console.log('Ending call, cleaning pc for next call');
   document.getElementById('callModal').classList.remove('show');
-  if(pc){try{pc.close()}catch{}; pc=null;}
-  if(localStream){localStream.getTracks().forEach(t=>{try{t.stop()}catch{}}); localStream=null;}
-  document.getElementById('localVideo').srcObject=null;
-  document.getElementById('remoteVideo').srcObject=null;
-  document.getElementById('remoteAudio').srcObject=null;
-  if(ws&&ws.readyState===1) ws.send(JSON.stringify({type:'call-end',familyCode:getCurrentCode()}));
+  if(localStream){
+    try{localStream.getTracks().forEach(t=>{try{t.stop()}catch{}});}catch{}
+    localStream=null;
+  }
+  if(pc){
+    try{
+      pc.ontrack=null; pc.onicecandidate=null; 
+      pc.onconnectionstatechange=null; pc.oniceconnectionstatechange=null;
+      pc.close();
+    }catch(e){}
+    pc=null;
+  }
+  try{
+    document.getElementById('localVideo').srcObject=null;
+    document.getElementById('remoteVideo').srcObject=null;
+    document.getElementById('remoteAudio').srcObject=null;
+  }catch{}
+  const ch=window._currentCallChannel;
+  window._currentCallChannel=null;
+  if(ws&&ws.readyState===1&&getCurrentCode()){
+    ws.send(JSON.stringify({type:'call-end',familyCode:getCurrentCode(),callChannel:ch||getCurrentCode()+'_call_'+(getCurrentUser()?.name||'unknown')}));
+  }
   sessionStorage.removeItem('pendingCall');
+  console.log('Call ended, pc=null, ready for next call');
 }
 function toggleMute(){if(!localStream) return; isMuted=!isMuted; localStream.getAudioTracks().forEach(t=>t.enabled=!isMuted); document.getElementById('muteBtn').textContent=isMuted?'🔇 Unmute':'🎤 Mute';}
 function toggleCam(){if(!localStream) return; const v=localStream.getVideoTracks(); if(!v.length) return; camOff=!camOff; v.forEach(t=>t.enabled=!camOff); document.getElementById('camBtn').textContent=camOff?'📹 Cam On':'📹 Cam Off';}
@@ -216,7 +246,24 @@ function connectSignaling(){
     localStorage.setItem(backupKey,JSON.stringify(merged.slice(-500)));
     if(view==='chat'){document.getElementById('msg-list').innerHTML=''; merged.forEach(appendMsg); setTimeout(()=>{const c=document.getElementById('messages'); if(c) c.scrollTop=c.scrollHeight;},100);}
    }else if(m.type==='call-offer'){handleOffer(m);}
-   else if(m.type==='call-answer'){if(pc){await pc.setRemoteDescription(new RTCSessionDescription(m.answer)); pc._remoteSet=true; if(pc._q.length){for(const c of pc._q){try{await pc.addIceCandidate(new RTCIceCandidate(c))}catch{}} pc._q=[];} document.getElementById('callStatus').textContent='Connected ✅';}}
+   else if(m.type==='call-answer'){
+  if(!pc){
+    console.log('Answer received but no pc, creating for 2nd call');
+    try{await createPC(m.isVideo||false);}catch(e){return;}
+  }
+  if(pc){
+    await pc.setRemoteDescription(new RTCSessionDescription(m.answer));
+    pc._remoteSet=true;
+    if(pc._q.length){for(const c of pc._q){try{await pc.addIceCandidate(new RTCIceCandidate(c))}catch{}} pc._q=[];}
+    document.getElementById('callStatus').textContent='Connected ✅ on '+(m.callChannel||'channel');
+  }
+}
+else if(m.type==='ice'){
+  if(!pc){console.log('ICE but no pc, ignoring');}
+  else{
+    try{if(pc._remoteSet) await pc.addIceCandidate(new RTCIceCandidate(m.candidate)); else pc._q.push(m.candidate);}catch(e){}
+  }
+}
    else if(m.type==='ice'){if(pc){try{if(pc._remoteSet) await pc.addIceCandidate(new RTCIceCandidate(m.candidate)); else pc._q.push(m.candidate);}catch(e){console.error('ICE',e);}}}
    else if(m.type==='call-end'||m.type==='call-declined'){endCall();}
   }catch(e){console.error(e);}
