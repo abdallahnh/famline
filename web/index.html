@@ -71,7 +71,31 @@ async function initPWA(){
 }
 function urlBase64ToUint8Array(b64){const p='='.repeat((4-b64.length%4)%4);const base=(b64+p).replace(/-/g,'+').replace(/_/g,'/');const raw=atob(base);const out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);return out;}
 async function createPC(isVideo){
-  if(pc){try{pc.close()}catch{}; pc=null;}
+  // FIX 2nd call: Force close any old PC first
+  if(pc){
+    try{
+      pc.ontrack=null; pc.onicecandidate=null;
+      pc.onconnectionstatechange=null; pc.oniceconnectionstatechange=null;
+      pc.close();
+    }catch(e){}
+    pc=null;
+    // Small delay to let browser clean up old PC
+    await new Promise(r=>setTimeout(r, 100));
+  }
+
+  // FIX iPhone mic permission: Reuse existing stream if still valid (keeps permission)
+  if(localStream){
+    const hasAudio = localStream.getAudioTracks().some(t=>t.readyState==='live');
+    const hasVideo = isVideo? localStream.getVideoTracks().some(t=>t.readyState==='live') : true;
+    if(hasAudio && hasVideo){
+      console.log('Reusing existing stream to avoid iPhone permission popup');
+    } else {
+      // Stream exists but dead, stop it and get new one
+      try{localStream.getTracks().forEach(t=>{try{t.stop()}catch{}});}catch{}
+      localStream=null;
+    }
+  }
+
   pc=new RTCPeerConnection({
     iceServers:[
       {urls:'stun:stun.l.google.com:19302'},
@@ -88,15 +112,9 @@ async function createPC(isVideo){
     rtcpMuxPolicy:'require'
   });
   pc._q=[]; pc._remoteSet=false;
-  pc.onicecandidate=e=>{
-  if(e.candidate&&ws&&ws.readyState===1){
-    const ch=window._currentCallChannel||getCurrentCode();
-    ws.send(JSON.stringify({type:'ice',familyCode:getCurrentCode(),callChannel:ch,candidate:e.candidate}))
-  }
-};
-  pc.oniceconnectionstatechange=()=>{if(pc.iceConnectionState==='failed')pc.restartIce();};
+  pc.onicecandidate=e=>{if(e.candidate&&ws&&ws.readyState===1){const ch=window._currentCallChannel||getCurrentCode(); ws.send(JSON.stringify({type:'ice',familyCode:getCurrentCode(),callChannel:ch,candidate:e.candidate}))}};
+  pc.oniceconnectionstatechange=()=>{if(pc&&pc.iceConnectionState==='failed'){try{pc.restartIce()}catch{}}};
   pc.ontrack=e=>{
-    console.log('ontrack', e.track.kind);
     if(e.track.kind==='video'){
       const rv=document.getElementById('remoteVideo');
       rv.srcObject=e.streams[0]; rv.play().catch(()=>{});
@@ -111,25 +129,40 @@ async function createPC(isVideo){
         });
       }
     }
-    document.getElementById('callStatus').textContent='Connected ✅ P2P';
+    document.getElementById('callStatus').textContent='Connected ✅';
   };
   pc.onconnectionstatechange=()=>{
+    if(!pc) return;
     document.getElementById('callStatus').textContent='Call: '+pc.connectionState;
     if(pc.connectionState==='failed'||pc.connectionState==='disconnected'){setTimeout(()=>{try{pc.restartIce()}catch{}},1000);}
   };
-  try{
-    const constraints=isVideo?{video:{facingMode:'user',width:{ideal:640},height:{ideal:480}}, audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}:{audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}};
-    localStream=await navigator.mediaDevices.getUserMedia(constraints);
-  }catch(err){
-    try{localStream=await navigator.mediaDevices.getUserMedia({audio:true});}catch(err2){alert('Mic needed: '+err2.message); throw err2;}
+
+  // Only request new media if we don't have reusable stream
+  if(!localStream){
+    try{
+      const constraints=isVideo?{video:{facingMode:'user',width:{ideal:640},height:{ideal:480}}, audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}:{audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}};
+      localStream=await navigator.mediaDevices.getUserMedia(constraints);
+      console.log('Got new stream for', isVideo?'video':'voice', localStream.getTracks().length+' tracks');
+    }catch(err){
+      console.log('Video failed, trying audio only', err);
+      try{localStream=await navigator.mediaDevices.getUserMedia({audio:true});}
+      catch(err2){alert('Mic needed: '+err2.message); throw err2;}
+    }
+  } else {
+    // Re-enable tracks that were disabled in endCall (iPhone fix)
+    localStream.getTracks().forEach(t=>{t.enabled=true;});
+    console.log('Reused stream, tracks re-enabled');
   }
+
   if(!localStream) throw new Error('No stream - mic denied');
-  if(!pc) throw new Error('No PC');
+  if(!pc) throw new Error('No PC - failed to create');
+
   localStream.getTracks().forEach(track=>{
-    if(track && pc && pc.signalingState!=='closed'){
-      try{pc.addTrack(track, localStream);}catch(e){console.error(e);}
+    if(track && pc && pc.signalingState!=='closed' && track.readyState==='live'){
+      try{pc.addTrack(track, localStream);}catch(e){console.error('addTrack',e);}
     }
   });
+
   const lv=document.getElementById('localVideo');
   lv.srcObject=localStream; lv.muted=true; lv.playsInline=true; lv.play().catch(()=>{});
   lv.style.display='block';
@@ -181,32 +214,57 @@ async function handleOffer(m){
   }catch(e){console.error(e); alert('Answer failed: '+e.message); endCall(); sessionStorage.removeItem('pendingCall');}
 }
 function endCall(){
-  console.log('Ending call, cleaning pc for next call');
+  console.log('Ending call - FIX for 2nd call + iPhone permission');
   document.getElementById('callModal').classList.remove('show');
+
+  // FIX iPhone: DON'T stop tracks with.stop() - that revokes permission and causes popup next time
+  // Instead just disable them, keep stream alive for next call
   if(localStream){
-    try{localStream.getTracks().forEach(t=>{try{t.stop()}catch{}});}catch{}
-    localStream=null;
+    try{
+      localStream.getTracks().forEach(t=>{
+        try{
+          // Disable but don't stop - keeps iPhone permission granted
+          t.enabled=false;
+          // For video, stop only video tracks to turn off camera light, but keep audio
+          if(t.kind==='video'){
+            try{t.stop();}catch{}
+          }
+        }catch{}
+      });
+      console.log('Tracks disabled (not stopped) to keep iPhone permission');
+    }catch{}
+    // DON'T set localStream=null for audio - keep it for reuse
+    // Only null it if all tracks are dead
+    const stillLive = localStream.getTracks().some(t=>t.readyState==='live');
+    if(!stillLive){
+      localStream=null;
+      console.log('All tracks dead, cleared stream');
+    }
   }
+
   if(pc){
     try{
-      pc.ontrack=null; pc.onicecandidate=null; 
+      pc.ontrack=null; pc.onicecandidate=null;
       pc.onconnectionstatechange=null; pc.oniceconnectionstatechange=null;
       pc.close();
-    }catch(e){}
+    }catch(e){console.error('pc close fail',e);}
     pc=null;
+    console.log('PC closed and nulled - ready for next call');
   }
+
   try{
     document.getElementById('localVideo').srcObject=null;
     document.getElementById('remoteVideo').srcObject=null;
     document.getElementById('remoteAudio').srcObject=null;
   }catch{}
+
   const ch=window._currentCallChannel;
   window._currentCallChannel=null;
   if(ws&&ws.readyState===1&&getCurrentCode()){
     ws.send(JSON.stringify({type:'call-end',familyCode:getCurrentCode(),callChannel:ch||getCurrentCode()+'_call_'+(getCurrentUser()?.name||'unknown')}));
   }
   sessionStorage.removeItem('pendingCall');
-  console.log('Call ended, pc=null, ready for next call');
+  console.log('Call ended - pc=null, stream kept for iPhone, ready for next call');
 }
 function toggleMute(){if(!localStream) return; isMuted=!isMuted; localStream.getAudioTracks().forEach(t=>t.enabled=!isMuted); document.getElementById('muteBtn').textContent=isMuted?'🔇 Unmute':'🎤 Mute';}
 function toggleCam(){if(!localStream) return; const v=localStream.getVideoTracks(); if(!v.length) return; camOff=!camOff; v.forEach(t=>t.enabled=!camOff); document.getElementById('camBtn').textContent=camOff?'📹 Cam On':'📹 Cam Off';}
