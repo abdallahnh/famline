@@ -1,6 +1,6 @@
 import { WebSocketServer } from 'ws';
 import webpush from 'web-push';
-
+const PORT = process.env.PORT || 10000;
 // PASTE YOUR REAL KEYS HERE
 const vapidKeys = {
   publicKey: 'BLVVg5SpmJ92dJPIm6kiuukl98yLgU1ikKNy6TJgoqu02ygGdmPVLiGPHY0qOuVA44to_qdkj-AWzi9q2BIXpbY',
