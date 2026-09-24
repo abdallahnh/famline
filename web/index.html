@@ -43,5 +43,53 @@ self.addEventListener('push', e=>{
 </script>
   <script>(function(){function m(a){var h=a.getAttribute("href");if(!h)return;try{var u=new URL(h,document.baseURI);if((u.protocol==="http:"||u.protocol==="https:")&&u.host!==location.host){a.target="_blank";a.rel="noopener noreferrer";}}catch(e){}}function s(){document.querySelectorAll("a[href]").forEach(m);}if(document.readyState!=="loading"){s();}else{document.addEventListener("DOMContentLoaded",s);}document.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(a){m(a);}},true);})();</script>
   
+
+<script>
+// PATCH: Auto invite link + cross-device family import
+(function(){
+  function getFamilyConfig(){
+    try{ return JSON.parse(localStorage.getItem('famline_family_v2')||localStorage.getItem('famline_family')||'null'); }catch(e){return null;}
+  }
+  function makeInviteLink(){
+    const cfg = getFamilyConfig();
+    if(!cfg) return null;
+    const data = btoa(unescape(encodeURIComponent(JSON.stringify({n:cfg.familyName||cfg.name,m:cfg.members,c:cfg.code||cfg.familyCode,p:cfg.code||''}))));
+    return location.origin+location.pathname+'#invite='+data;
+  }
+  // Show invite UI
+  setInterval(()=>{
+    const cfg = getFamilyConfig();
+    if(!cfg) return;
+    let el = document.getElementById('famline-invite-banner');
+    if(!el){
+      el = document.createElement('div');
+      el.id='famline-invite-banner';
+      el.style.cssText='position:fixed;bottom:80px;left:12px;right:12px;z-index:9999;background:#111827;color:white;padding:12px 14px;border-radius:14px;font-family:system-ui;display:flex;flex-direction:column;gap:8px;box-shadow:0 8px 30px rgba(0,0,0,.3)';
+      document.body.appendChild(el);
+    }
+    const link = makeInviteLink();
+    if(link){
+      el.innerHTML = `<div style="font-weight:700">👨‍👩‍👧‍👦 Invite Family</div>
+      <div style="font-size:12px;opacity:.8">Share this link with wife/kids - it auto-fills Family Code:</div>
+      <input value="${link}" readonly style="width:100%;padding:8px;border-radius:8px;border:0;color:#111" onclick="this.select();navigator.clipboard.writeText(this.value);this.nextElementSibling.innerText='Copied!'" />
+      <div style="font-size:11px;color:#4ade80">Tap to copy</div>
+      <div style="font-size:11px;opacity:.7">Family Code: <b>${cfg.code||cfg.familyCode||cfg.familyName}</b> | Password: you set</div>`;
+    }
+    // Auto-import from #invite=
+    if(location.hash.includes('invite=')){
+      try{
+        const b64 = location.hash.split('invite=')[1];
+        const json = JSON.parse(decodeURIComponent(escape(atob(b64))));
+        const newCfg = {familyName:json.n, name:json.n, members:json.m, code:json.c||json.n, familyCode:json.c||json.n};
+        localStorage.setItem('famline_family_v2', JSON.stringify(newCfg));
+        console.log('Imported family from invite', newCfg);
+        // clean hash
+        history.replaceState(null,'',location.pathname);
+        location.reload();
+      }catch(e){console.error('invite parse fail',e)}
+    }
+  },1500);
+})();
+</script>
 </body>
 </html>
