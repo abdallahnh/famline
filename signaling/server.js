@@ -1,10 +1,14 @@
-
 import { WebSocketServer } from 'ws';
 import webpush from 'web-push';
 const PORT = process.env.PORT || 10000;
-webpush.setVapidDetails('mailto:famline@example.com', 'BATeuCAksUg6_iGRtHVtooaaBiLKFhSk7alN2CKCNkZG3OCsR7A-d2brzOOCAU6xp7ucfyXAolTj2YueJUeIydQ', 'VVQyw3BXZeB1Ck7E1Sz3YH5qDMZqTPMLOvOBBrMD5xs');
+// PASTE YOUR REAL KEYS HERE from npx web-push generate-vapid-keys
+const vapidKeys = {
+  publicKey: 'BATeuCAksUg6_iGRtHVtooaaBiLKFhSk7alN2CKCNkZG3OCsR7A-d2brzOOCAU6xp7ucfyXAolTj2YueJUeIydQ',
+  privateKey: 'VVQyw3BXZeB1Ck7E1Sz3YH5qDMZqTPMLOvOBBrMD5xs'
+};
+webpush.setVapidDetails('mailto:famline@example.com', vapidKeys.publicKey, vapidKeys.privateKey);
 const wss = new WebSocketServer({ port: PORT });
-console.log('iOS Fixed BG running '+PORT);
+console.log('FamLine v6 FINAL running '+PORT);
 const families=new Map(), history=new Map(), pushSubs=new Map();
 wss.on('connection', ws=>{
   ws.id=Math.random().toString(36).slice(2,9);
@@ -34,6 +38,18 @@ wss.on('connection', ws=>{
         if(!history.has(ws.familyCode)) history.set(ws.familyCode, []);
         history.get(ws.familyCode).push({sender:msg.sender,role:msg.role,text:msg.text,ts:msg.ts});
         if(history.get(ws.familyCode).length>500) history.get(ws.familyCode).shift();
+        const subs=pushSubs.get(ws.familyCode)||[];
+        for(const sub of subs){
+          if(sub.user?.name!==msg.sender){
+            try{
+              await webpush.sendNotification(sub.subscription, JSON.stringify({
+                title: `${msg.sender} • ${msg.role}`,
+                body: msg.text,
+                tag:'famline-msg', type:'message', from:msg.sender, familyCode:ws.familyCode
+              }));
+            }catch(e){}
+          }
+        }
       }
       if(msg.type==='call-offer'){
         const subs=pushSubs.get(ws.familyCode)||[];
@@ -41,18 +57,17 @@ wss.on('connection', ws=>{
           if(sub.user?.name!==msg.from){
             try{
               await webpush.sendNotification(sub.subscription, JSON.stringify({
-                title:`Incoming ${msg.isVideo?'video':'voice'} call`,
-                body:`${msg.from} calling - Tap to answer`,
+                title: `Incoming ${msg.isVideo?'video':'voice'} call`,
+                body: `${msg.from} calling Nehme - Tap to answer`,
                 tag:'famline-call', type:'call', isVideo:msg.isVideo, from:msg.from, familyCode:ws.familyCode
               }));
-            }catch(e){}
+            }catch(e){if(e.statusCode===410){const idx=subs.indexOf(sub); if(idx>-1) subs.splice(idx,1);}}
           }
         }
       }
       const fam=families.get(ws.familyCode)||new Set();
-      fam.forEach(c=>{if(c!==ws) c.send(JSON.stringify({'...msg,from:ws.id}));});
-    }catch(e){}
+      fam.forEach(c=>{if(c!==ws) c.send(JSON.stringify({...msg,from:ws.id,fromName:ws.userName}));});
+    }catch(e){console.error(e);}
   });
-  ws.on('close',()=>{if(ws.familyCode&&families.has(ws.familyCode)) families.get(ws.familyCode).delete(ws);});
+  ws.on('close',()=>{if(ws.familyCode&&families.has(ws.familyCode)){families.get(ws.familyCode).delete(ws);}});
 });
-console.log('Ready iOS fixed');
