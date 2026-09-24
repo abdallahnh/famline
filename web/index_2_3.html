@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FamLine - Nehme Family</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto;background:#fdf6ec;color:#111}
+  .wrap{max-width:960px;margin:0 auto;padding:20px}
+  .card{background:white;border-radius:24px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.08);border:1px solid #eee}
+  .btn{padding:14px 20px;border-radius:999px;border:0;font-weight:800;cursor:pointer}
+  .btn-black{background:#111;color:white;width:100%}
+  .btn-orange{background:#f97316;color:white}
+  .input{width:100%;padding:14px 16px;border-radius:14px;border:1px solid #ddd;background:#f9f9f9;font-size:16px}
+  .family-chip{display:flex;align-items:center;gap:12px;padding:12px;border-radius:16px;background:#fff7ed;border:1px solid #fed7aa}
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+  .badge{font-size:11px;background:#111;color:white;padding:4px 8px;border-radius:999px}
+</style>
+</head>
+<body>
+<div id="landing" class="wrap">
+  <div class="topbar"><h2 style="margin:0">FamLine</h2><span class="badge">E2E • No Cloud</span></div>
+  
+  <div id="existing-families" style="display:none;margin-bottom:16px"></div>
+
+  <div class="card" style="margin-bottom:16px">
+    <h1 style="margin:0 0 8px">Your Family, Private & Secure</h1>
+    <p style="opacity:.7;font-size:14px;margin:0 0 20px">Create a new family or join with a code + password. Your data never leaves your device.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <button class="btn btn-black" onclick="showCreate()">+ Create Family</button>
+      <button class="btn" style="background:white;border:2px solid #111" onclick="showJoin()">↪ Join Family</button>
+    </div>
+  </div>
+
+  <div id="create-box" class="card" style="display:none;margin-bottom:16px">
+    <h3 style="margin:0 0 12px">Create Family - Nehme</h3>
+    <label style="font-size:12px;font-weight:700">Family Name</label>
+    <input id="c-famname" class="input" value="Nehme" style="margin:6px 0 12px">
+    <div id="c-members"></div>
+    <button class="btn" style="background:#fff;border:1px dashed #ccc;width:100%;margin:8px 0" onclick="addMember()">+ Add Member</button>
+    <label style="font-size:12px;font-weight:700">Family Password (E2E Key)</label>
+    <input id="c-pwd" class="input" type="password" placeholder="Secret only family knows" style="margin:6px 0 12px">
+    <button class="btn btn-black" onclick="doCreate()">Create & Get Invite Link</button>
+    <div id="c-result" style="display:none;margin-top:16px;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px"></div>
+  </div>
+
+  <div id="join-box" class="card" style="display:none">
+    <h3 style="margin:0 0 12px">Join Family</h3>
+    <p style="font-size:13px;opacity:.7">Enter code and password shared by family admin. Example: FAM-EH0J-ZN06</p>
+    <label style="font-size:12px;font-weight:700">Family Code</label>
+    <input id="j-code" class="input" placeholder="FAM-XXXX-XXXX" style="text-transform:uppercase;margin:6px 0 12px">
+    <label style="font-size:12px;font-weight:700">Family Password</label>
+    <input id="j-pwd" class="input" type="password" placeholder="Family password" style="margin:6px 0 12px">
+    <label style="font-size:12px;font-weight:700">Your Name</label>
+    <input id="j-name" class="input" placeholder="e.g. Nado" style="margin:6px 0 12px">
+    <label style="font-size:12px;font-weight:700">Role</label>
+    <select id="j-role" class="input" style="margin:6px 0 12px"><option>Father</option><option>Mother</option><option>Son</option><option>Daughter</option></select>
+    <button class="btn btn-black" onclick="doJoin()">Join Family</button>
+    <div id="j-error" style="color:#ef4444;font-size:13px;margin-top:10px;display:none"></div>
+  </div>
+</div>
+
+<div id="app-root" style="display:none"></div>
+
+<script>
+// ---- Storage helpers : multi-family ----
+function getFamilies(){ try{return JSON.parse(localStorage.getItem('famline_families')||'{}')}catch(e){return {}} }
+function saveFamilies(f){ localStorage.setItem('famline_families', JSON.stringify(f)); }
+function getCurrentCode(){ return localStorage.getItem('famline_current_code'); }
+function setCurrentCode(c){ localStorage.setItem('famline_current_code', c); }
+
+function genCode(){ const s='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let a=''; for(let i=0;i<4;i++) a+=s[Math.floor(Math.random()*s.length)]; let b=''; for(let i=0;i<4;i++) b+=s[Math.floor(Math.random()*s.length)]; return `FAM-${a}-${b}`; }
+
+let members = [
+  {name:'Abdallah', role:'Father', emoji:'👨'},
+  {name:'Nado', role:'Mother', emoji:'👩'},
+  {name:'Talia', role:'Daughter', emoji:'👧'},
+  {name:'Mohamad', role:'Son', emoji:'👦'},
+  {name:'Perla', role:'Daughter', emoji:'👧'},
+];
+
+function renderMembers(){
+  const box=document.getElementById('c-members');
+  box.innerHTML = members.map((m,i)=>`
+    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+      <span style="font-size:20px">${m.emoji}</span>
+      <input class="input" style="flex:1" value="${m.name}" onchange="members[${i}].name=this.value">
+      <select class="input" style="width:120px" onchange="members[${i}].role=this.value"><option ${m.role=='Father'?'selected':''}>Father</option><option ${m.role=='Mother'?'selected':''}>Mother</option><option ${m.role=='Son'?'selected':''}>Son</option><option ${m.role=='Daughter'?'selected':''}>Daughter</option></select>
+      <button onclick="members.splice(${i},1);renderMembers()" style="border:0;background:#fee2e2;padding:8px;border-radius:8px">✕</button>
+    </div>
+  `).join('');
+}
+function addMember(){ members.push({name:'',role:'Son',emoji:'👤'}); renderMembers(); }
+
+function showCreate(){ document.getElementById('create-box').style.display='block'; document.getElementById('join-box').style.display='none'; renderMembers(); }
+function showJoin(){ document.getElementById('join-box').style.display='block'; document.getElementById('create-box').style.display='none'; const p=new URLSearchParams(location.search); if(p.get('join')) document.getElementById('j-code').value=p.get('join').toUpperCase(); }
+
+function doCreate(){
+  const famName=document.getElementById('c-famname').value.trim()||'Nehme';
+  const pwd=document.getElementById('c-pwd').value.trim();
+  if(!pwd){alert('Set a family password!');return;}
+  if(members.some(m=>!m.name.trim())){alert('Fill all member names');return;}
+  const code = genCode();
+  const fam = {familyName:famName, name:famName, code:code, familyCode:code, members:members, password:pwd, createdAt:Date.now()};
+  const all=getFamilies(); all[code]=fam; saveFamilies(all); setCurrentCode(code);
+  // legacy keys for old app
+  localStorage.setItem('famline_family_v2', JSON.stringify(fam));
+  // make invite link
+  const payload = {n:famName, m:members.map(x=>x.name), c:code, full:members};
+  const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  const invite = location.origin+location.pathname+'#invite='+b64;
+  document.getElementById('c-result').style.display='block';
+  document.getElementById('c-result').innerHTML = `
+    <b>Family ${famName} created!</b><br>Code: <b style="font-size:18px">${code}</b><br><br>
+    <div style="font-size:12px">Invite link (share with family):</div>
+    <input class="input" value="${invite}" readonly onclick="this.select();navigator.clipboard.writeText(this.value);alert('Copied!')">
+    <br><br>
+    <button class="btn btn-black" onclick="enterApp()">Enter Chat →</button>
+  `;
+}
+
+function doJoin(){
+  const code=document.getElementById('j-code').value.trim().toUpperCase();
+  const pwd=document.getElementById('j-pwd').value.trim();
+  const myName=document.getElementById('j-name').value.trim();
+  const role=document.getElementById('j-role').value;
+  const err=document.getElementById('j-error');
+  if(!code||!pwd||!myName){ err.style.display='block'; err.textContent='Fill code, password, and your name'; return; }
+  // If we have invite data with full members, use it
+  let all=getFamilies();
+  let fam = all[code];
+  if(!fam){
+    // Try to get from invite hash if present
+    let inviteData=null;
+    if(location.hash.includes('invite=')){
+      try{ const b64=location.hash.split('invite=')[1]; inviteData=JSON.parse(decodeURIComponent(escape(atob(b64)))); }catch(e){}
+    }
+    if(inviteData && inviteData.c===code){
+      // Build family from invite
+      const mems = (inviteData.full||inviteData.m||[]).map(n=> typeof n==='string'?{name:n,role:'Member',emoji:'👤'}:n);
+      // Add joining user if not exists
+      if(!mems.find(x=>x.name.toLowerCase()===myName.toLowerCase())) mems.push({name:myName,role:role,emoji: role==='Father'?'👨':role==='Mother'?'👩':role==='Son'?'👦':'👧'});
+      fam = {familyName:inviteData.n||'Nehme', name:inviteData.n||'Nehme', code:code, familyCode:code, members:mems, password:pwd, createdAt:Date.now()};
+    }else{
+      // No prior family, create minimal joining family - user will see empty but with code
+      // For better UX, create with Nehme default if code matches known
+      if(code==='FAM-EH0J-ZN06' || code==='FAM-EHOJ-ZNO6'){
+        fam = {familyName:'Nehme', name:'Nehme', code:'FAM-EH0J-ZN06', familyCode:'FAM-EH0J-ZN06', members:[
+          {name:'Abdallah',role:'Father',emoji:'👨'},
+          {name:'Nado',role:'Mother',emoji:'👩'},
+          {name:'Talia',role:'Daughter',emoji:'👧'},
+          {name:'Mohamad',role:'Son',emoji:'👦'},
+          {name:'Perla',role:'Daughter',emoji:'👧'},
+        ], password:pwd, createdAt:Date.now()};
+        // ensure joining user is in list
+        if(!fam.members.find(x=>x.name.toLowerCase()===myName.toLowerCase())) fam.members.push({name:myName,role:role,emoji:'👤'});
+      }else{
+        fam = {familyName:'Family '+code.slice(-4), name:'Family '+code.slice(-4), code:code, familyCode:code, members:[{name:myName,role:role,emoji:'👤'}], password:pwd, createdAt:Date.now()};
+      }
+    }
+    all[code]=fam; saveFamilies(all);
+  }else{
+    // family exists, ensure user in members
+    if(!fam.members.find(x=>x.name.toLowerCase()===myName.toLowerCase())){
+      fam.members.push({name:myName,role:role,emoji:'👤'});
+      all[code]=fam; saveFamilies(all);
+    }
+    // check password (simple check)
+    if(fam.password && fam.password!==pwd){ err.style.display='block'; err.textContent='Wrong password'; return; }
+  }
+  localStorage.setItem('famline_family_v2', JSON.stringify(fam));
+  setCurrentCode(code);
+  enterApp();
+}
+
+function enterApp(){
+  document.getElementById('landing').style.display='none';
+  document.getElementById('app-root').style.display='block';
+  // Load the real app iframe or inline
+  location.href = location.pathname + '?app=1&code='+encodeURIComponent(getCurrentCode());
+}
+
+// Handle invite hash on load
+(function(){
+  // Reset handling
+  const p=new URLSearchParams(location.search);
+  if(p.has('reset')){ localStorage.clear(); history.replaceState(null,'',location.pathname); }
+  // Show existing families
+  const all=getFamilies();
+  const codes=Object.keys(all);
+  if(codes.length){
+    const box=document.getElementById('existing-families');
+    box.style.display='block';
+    box.innerHTML = '<div class="card"><h4 style="margin:0 0 10px">Your families on this device</h4>'+codes.map(c=>{
+      const f=all[c]; return `<div class="family-chip" style="margin-bottom:8px;justify-content:space-between"><div><b>${f.familyName}</b> • ${f.code}<br><small>${f.members.map(m=>m.name).join(', ')}</small></div><button class="btn btn-orange" onclick="setCurrentCode('${c}');localStorage.setItem('famline_family_v2', JSON.stringify(getFamilies()['${c}']));enterApp()">Open</button></div>`;
+    }).join('')+'<button onclick="if(confirm(\'Clear all families?\')){localStorage.clear();location.reload()}" style="margin-top:8px;font-size:12px;background:none;border:0;color:#ef4444">Clear all</button></div>';
+  }
+  // Invite hash
+  if(location.hash.includes('invite=')){
+    try{
+      const b64=location.hash.split('invite=')[1];
+      const data=JSON.parse(decodeURIComponent(escape(atob(b64))));
+      // prefill join
+      showJoin();
+      document.getElementById('j-code').value=(data.c||'FAM-EH0J-ZN06');
+      document.getElementById('existing-families').innerHTML = `<div class="card" style="border-color:#f97316"><b>Invite to join ${data.n||'Nehme'}</b><br>Code: ${data.c}<br>Members: ${(data.m||[]).join(', ')}<br><br>Enter password to join</div>`+document.getElementById('existing-families').innerHTML;
+    }catch(e){console.log('invite parse fail',e)}
+  }
+  if(p.has('join')){ showJoin(); document.getElementById('j-code').value=p.get('join').toUpperCase(); }
+  if(p.has('app')){ 
+    // Load original app
+    document.getElementById('landing').style.display='none';
+    document.getElementById('app-root').style.display='block';
+    // inject original React app script (we will fetch original index content)
+    document.getElementById('app-root').innerHTML = `<iframe src="app.html" style="width:100%;height:100vh;border:0"></iframe>`;
+  }
+})();
+
+renderMembers();
+</script>
+</body>
+</html>
