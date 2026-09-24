@@ -141,13 +141,13 @@ async function startCall(isVideo){
   window._currentCallChannel=getCurrentCode()+'_call_'+callerName+'_'+Date.now();
   console.log('Starting call on caller channel', window._currentCallChannel);
   document.getElementById('callModal').classList.add('show');
-  document.getElementById('callTitle').textContent=isVideo?'Video - Nehme':'Voice - Nehme';
-  document.getElementById('callStatus').textContent='Starting on channel '+window._currentCallChannel;
+document.getElementById('callTitle').textContent=isVideo?'Video Call':'Voice Call';
+document.getElementById('callStatus').textContent='Calling...';
   try{
     await createPC(isVideo);
     const offer=await pc.createOffer({offerToReceiveAudio:true, offerToReceiveVideo:isVideo});
     await pc.setLocalDescription(offer);
-    document.getElementById('callStatus').textContent='Calling on '+callerName+' channel...';
+    document.getElementById('callStatus').textContent='Calling... waiting for answer';
     if(ws&&ws.readyState===1){
       ws.send(JSON.stringify({type:'call-offer',familyCode:getCurrentCode(),callChannel:window._currentCallChannel,offer:offer,isVideo:isVideo,from:callerName}));
     }
@@ -155,12 +155,18 @@ async function startCall(isVideo){
 }
 async function handleOffer(m){
   if(document.getElementById('callModal').classList.contains('show')) return;
-  if(m.callChannel){window._currentCallChannel=m.callChannel;}
-  else {window._currentCallChannel=getCurrentCode()+'_call_'+(m.from||'unknown')+'_'+Date.now();}
+  // Use real caller name, not random ID
+  const callerName = m.fromName || m.from || 'Family';
+  const channel = m.callChannel || getCurrentCode();
+  window._currentCallChannel = channel;
+  console.log('Incoming call from', callerName, 'on', channel);
   sessionStorage.setItem('pendingCall', JSON.stringify(m));
-  if(!confirm(`${m.from||'Family'} calling ${m.isVideo?'video':'voice'}. Answer?`)){if(ws) ws.send(JSON.stringify({type:'call-declined',familyCode:getCurrentCode()})); sessionStorage.removeItem('pendingCall'); return;}
+  if(!confirm(`${callerName} calling ${m.isVideo?'video':'voice'} call. Answer?`)){
+    if(ws) ws.send(JSON.stringify({type:'call-declined',familyCode:getCurrentCode(),callChannel:channel}));
+    sessionStorage.removeItem('pendingCall'); return;
+  }
   document.getElementById('callModal').classList.add('show');
-  document.getElementById('callTitle').textContent=`From ${m.from||'family'}`;
+  document.getElementById('callTitle').textContent=`${callerName} is calling...`;
   document.getElementById('callStatus').textContent='Answering...';
   try{
     await createPC(m.isVideo);
@@ -169,8 +175,8 @@ async function handleOffer(m){
     if(pc._q.length){for(const c of pc._q){try{await pc.addIceCandidate(new RTCIceCandidate(c))}catch{}} pc._q=[];}
     const ans=await pc.createAnswer();
     await pc.setLocalDescription(ans);
-    if(ws) ws.send(JSON.stringify({type:'call-answer',familyCode:getCurrentCode(),callChannel:window._currentCallChannel,answer:ans,from:getCurrentUser()?.name}));
-    document.getElementById('callStatus').textContent='Connecting P2P...';
+    if(ws) ws.send(JSON.stringify({type:'call-answer',familyCode:getCurrentCode(),callChannel:channel,answer:ans,from:getCurrentUser()?.name,fromName:getCurrentUser()?.name}));
+    document.getElementById('callStatus').textContent='Connecting...';
     sessionStorage.removeItem('pendingCall');
   }catch(e){console.error(e); alert('Answer failed: '+e.message); endCall(); sessionStorage.removeItem('pendingCall');}
 }
