@@ -1,41 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>FamLine - Nehme Family</title>
-<style>
-*{box-sizing:border-box}body{margin:0;font-family:system-ui;background:#fdf6ec;color:#111;height:100vh;overflow:hidden}
-#root{height:100vh;display:flex;flex-direction:column}
-.card{background:white;border-radius:20px;padding:20px;box-shadow:0 8px 30px rgba(0,0,0,.06);border:1px solid #eee}
-.btn{padding:12px 18px;border-radius:999px;border:0;font-weight:700;cursor:pointer;font-size:14px}
-.btn-black{background:#111;color:white}
-.btn-orange{background:#f97316;color:white}
-.btn-light{background:white;border:1px solid #ddd}
-.input{width:100%;padding:13px 15px;border-radius:14px;border:1px solid #ddd;background:#fafafa;font-size:16px;outline:none}
-.badge{font-size:10px;background:#111;color:white;padding:4px 10px;border-radius:999px}
-.member-row{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:14px;border:1px solid #eee;background:#fff;margin-bottom:8px}
-.chat-layout{display:flex;height:100vh;position:relative}
-.sidebar{width:300px;background:#fff;border-right:1px solid #eee;display:flex;flex-direction:column}
-.main{flex:1;display:flex;flex-direction:column;min-width:0;background:#fdf6ec}
-.msg{max-width:78%;padding:10px 14px;border-radius:18px;margin-bottom:8px;font-size:14px;line-height:1.45;word-break:break-word}
-.msg.me{background:#111;color:white;margin-left:auto;border-bottom-right-radius:6px}
-.msg.other{background:white;border:1px solid #e5e5e5;margin-right:auto;border-bottom-left-radius:6px}
-.topbar{padding:10px 14px;background:white;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;gap:8px}
-.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:10}
-.overlay.show{display:block}
-@media(max-width:768px){
-.sidebar{position:fixed;left:0;top:0;bottom:0;z-index:20;transform:translateX(-100%);transition:transform .28s ease;width:82%;max-width:320px}
-.sidebar.open{transform:translateX(0)}
-.main{width:100%}
-.msg{max-width:84%}
-}
-.status-dot{width:8px;height:8px;background:#22c55e;border-radius:50%;display:inline-block}
-</style>
-</head>
-<body>
-<div id="root"></div>
-<script>
+<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>FamLine</title><style>*{box-sizing:border-box}body{margin:0;font-family:system-ui;background:#fdf6ec} .card{background:white;border-radius:20px;padding:18px;margin-bottom:14px;border:1px solid #eee} .btn{padding:12px 18px;border-radius:999px;border:0;font-weight:700;cursor:pointer} .btn-black{background:#111;color:white} .input{width:100%;padding:12px;border-radius:12px;border:1px solid #ddd} .member-row{display:flex;gap:10px;align-items:center;padding:10px;border-radius:14px;border:1px solid #eee;background:#fff;margin-bottom:8px} .chat-layout{display:flex;height:100vh} .sidebar{width:280px;background:#fff;border-right:1px solid #eee;display:flex;flex-direction:column} .main{flex:1;display:flex;flex-direction:column} .msg{max-width:78%;padding:10px 14px;border-radius:18px;margin-bottom:8px} .msg.me{background:#111;color:white;margin-left:auto} .msg.other{background:white;border:1px solid #eee;margin-right:auto} .topbar{padding:10px;background:white;border-bottom:1px solid #eee;display:flex;justify-content:space-between} #callModal{display:none;position:fixed;inset:0;background:#111;z-index:50;flex-direction:column;color:white} #callModal.show{display:flex} .video-grid{display:flex;flex:1;gap:8px;padding:12px;justify-content:center;align-items:center} .video-grid video{width:45%;height:200px;background:#222;border-radius:16px}</style></head><body><div id="root"></div><div id="callModal"><div style="padding:14px;display:flex;justify-content:space-between"><div><b id="callTitle">Calling...</b><div id="callStatus" style="font-size:12px;opacity:.7">Connecting</div></div><button onclick="endCall()" style="padding:8px 12px;border-radius:8px;border:0">✕</button></div><div class="video-grid"><video id="localVideo" autoplay muted playsinline></video><video id="remoteVideo" autoplay playsinline></video></div><div style="padding:20px;text-align:center"><button onclick="endCall()" style="background:#ef4444;color:white;padding:14px 28px;border-radius:999px;border:0;font-weight:700">End Call</button></div></div><script>
 const LS_FAMS='famline_families',LS_CUR_CODE='famline_current_code',LS_CUR_USER='famline_current_user';
 function getFamilies(){try{return JSON.parse(localStorage.getItem(LS_FAMS)||'{}')}catch{return {}}}
 function saveFamilies(f){localStorage.setItem(LS_FAMS,JSON.stringify(f))}
@@ -45,82 +8,71 @@ function getCurrentUser(){try{return JSON.parse(localStorage.getItem(LS_CUR_USER
 function setCurrentUser(u){localStorage.setItem(LS_CUR_USER,JSON.stringify(u))}
 function genCode(){const s='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let a='';for(let i=0;i<4;i++)a+=s[Math.floor(Math.random()*s.length)];let b='';for(let i=0;i<4;i++)b+=s[Math.floor(Math.random()*s.length)];return `FAM-${a}-${b}`}
 let view='landing',joinPrefillCode='';
-let createMembers=[{name:'Abdallah',role:'Father',emoji:'👨',age:'Adult'},{name:'Nado',role:'Mother',emoji:'👩',age:'Adult'},{name:'Talia',role:'Daughter',emoji:'👧',age:'Kid'},{name:'Mohamad',role:'Son',emoji:'👦',age:'Kid'},{name:'Perla',role:'Daughter',emoji:'👧',age:'Kid'}];
-let ws=null,wsConnected=false,peerCount=0;
+let createMembers=[{name:'Abdallah',role:'Father',emoji:'👨'},{name:'Nado',role:'Mother',emoji:'👩'},{name:'Talia',role:'Daughter',emoji:'👧'},{name:'Mohamad',role:'Son',emoji:'👦'},{name:'Perla',role:'Daughter',emoji:'👧'}];
+let ws=null,pc=null,localStream=null;
 function connectSignaling(){
-if(ws&&ws.readyState===1)return;
-const SIGNAL_URL='wss://famline-signaling.onrender.com';
-try{
-ws=new WebSocket(SIGNAL_URL);
-ws.onopen=()=>{wsConnected=true;const code=getCurrentCode();const user=getCurrentUser();if(code&&user){ws.send(JSON.stringify({type:'join',familyCode:code,name:user.name}))}updateStatus()};
-ws.onclose=()=>{wsConnected=false;updateStatus();setTimeout(connectSignaling,3000)};
-ws.onerror=()=>{wsConnected=false;updateStatus()};
-ws.onmessage=(ev)=>{try{const m=JSON.parse(ev.data);if(m.type==='chat'){const key='famline_msgs_'+(getCurrentCode()||'default');const msgs=JSON.parse(localStorage.getItem(key)||'[]');if(!msgs.find(x=>x.ts===m.ts&&x.sender===m.sender)){msgs.push({sender:m.sender,role:m.role,text:m.text,ts:m.ts});localStorage.setItem(key,JSON.stringify(msgs));if(view==='chat')appendMsg({sender:m.sender,role:m.role,text:m.text,ts:m.ts})}}else if(m.type==='peer-joined'){peerCount++;updateStatus()}else if(m.type==='peer-left'){peerCount=Math.max(0,peerCount-1);updateStatus()}}catch{}}
-}catch(e){console.log(e)}
+ if(ws&&ws.readyState===1)return;
+ const url='wss://famline-signaling.onrender.com';
+ ws=new WebSocket(url);
+ ws.onopen=()=>{const c=getCurrentCode(),u=getCurrentUser();if(c&&u)ws.send(JSON.stringify({type:'join',familyCode:c,name:u.name}));};
+ ws.onmessage=async(ev)=>{
+  const m=JSON.parse(ev.data);
+  if(m.type==='chat'){
+   const key='famline_msgs_'+(getCurrentCode()||'default');const msgs=JSON.parse(localStorage.getItem(key)||'[]');
+   if(!msgs.find(x=>x.ts===m.ts&&x.sender===m.sender)){msgs.push({sender:m.sender,role:m.role,text:m.text,ts:m.ts});localStorage.setItem(key,JSON.stringify(msgs));if(view==='chat')appendMsg(m)}
+  }else if(m.type==='history'&&m.messages){
+   const key='famline_msgs_'+(getCurrentCode()||'default');const ex=JSON.parse(localStorage.getItem(key)||'[]');const merged=[...ex];m.messages.forEach(h=>{if(!merged.find(x=>x.ts===h.ts&&x.sender===h.sender))merged.push(h)});merged.sort((a,b)=>a.ts-b.ts);localStorage.setItem(key,JSON.stringify(merged));if(view==='chat'){document.getElementById('msg-list').innerHTML='';merged.forEach(appendMsg)}
+  }else if(m.type==='call-offer'){handleOffer(m)}
+  else if(m.type==='call-answer'){if(pc)await pc.setRemoteDescription(new RTCSessionDescription(m.answer))}
+  else if(m.type==='ice'){if(pc)await pc.addIceCandidate(new RTCIceCandidate(m.candidate))}
+  else if(m.type==='call-end'){endCall()}
+ };
+ ws.onclose=()=>setTimeout(connectSignaling,3000);
 }
-function updateStatus(){const el=document.getElementById('conn-status');if(!el)return;if(wsConnected){el.innerHTML='<span class="status-dot"></span> Live • '+(peerCount+1)+' online';el.style.color='#16a34a'}else{el.innerHTML='● Offline • local only';el.style.color='#ef4444'}}
-function appendMsg(m){const list=document.getElementById('msg-list');if(!list)return;const cur=getCurrentUser();const isMe=cur&&m.sender===cur.name;const div=document.createElement('div');div.className='msg '+(isMe?'me':'other');div.innerHTML='<b style="font-size:11px;display:block;opacity:.6">'+m.sender+' • '+m.role+'</b>'+m.text.replace(/</g,'&lt;')+'<br><span style="font-size:10px;opacity:.5">'+new Date(m.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+'</span>';list.appendChild(div);const cont=document.getElementById('messages');if(cont)cont.scrollTop=cont.scrollHeight}
-function toggleSidebar(open){const sb=document.getElementById('sidebar');const ov=document.getElementById('overlay');if(!sb)return;if(open){sb.classList.add('open');ov.classList.add('show')}else{sb.classList.remove('open');ov.classList.remove('show')}}
+function appendMsg(m){const list=document.getElementById('msg-list');if(!list)return;const cur=getCurrentUser();const isMe=cur&&m.sender===cur.name;const div=document.createElement('div');div.className='msg '+(isMe?'me':'other');div.innerHTML=`<b style="font-size:11px;display:block;opacity:.6">${m.sender} • ${m.role}</b>${m.text}<br><span style="font-size:10px;opacity:.5">${new Date(m.ts).toLocaleTimeString()}</span>`;list.appendChild(div);const c=document.getElementById('messages');if(c)c.scrollTop=c.scrollHeight}
+function createPC(isVideo){
+ pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+ pc.onicecandidate=e=>{if(e.candidate&&ws&&ws.readyState===1)ws.send(JSON.stringify({type:'ice',familyCode:getCurrentCode(),candidate:e.candidate}))};
+ pc.ontrack=e=>{document.getElementById('remoteVideo').srcObject=e.streams[0]};
+ return navigator.mediaDevices.getUserMedia({video:isVideo,audio:true}).then(s=>{localStream=s;localStream.getTracks().forEach(t=>pc.addTrack(t,s));document.getElementById('localVideo').srcObject=s;});
+}
+async function startCall(isVideo){
+ document.getElementById('callModal').classList.add('show');
+ document.getElementById('callTitle').textContent=isVideo?'Video call - Nehme':'Voice call - Nehme';
+ document.getElementById('callStatus').textContent='Calling family...';
+ await createPC(isVideo);
+ const offer=await pc.createOffer();await pc.setLocalDescription(offer);
+ ws.send(JSON.stringify({type:'call-offer',familyCode:getCurrentCode(),offer:offer,isVideo:isVideo,from:getCurrentUser()?.name}));
+}
+async function handleOffer(m){
+ if(!confirm(`${m.from||'Family'} calling ${m.isVideo?'video':'voice'}. Answer?`))return;
+ document.getElementById('callModal').classList.add('show');
+ document.getElementById('callTitle').textContent=`In call with ${m.from||'family'}`;
+ await createPC(m.isVideo);
+ await pc.setRemoteDescription(new RTCSessionDescription(m.offer));
+ const ans=await pc.createAnswer();await pc.setLocalDescription(ans);
+ ws.send(JSON.stringify({type:'call-answer',familyCode:getCurrentCode(),answer:ans}));
+}
+function endCall(){document.getElementById('callModal').classList.remove('show');if(pc){pc.close();pc=null}if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null}document.getElementById('localVideo').srcObject=null;document.getElementById('remoteVideo').srcObject=null;if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'call-end',familyCode:getCurrentCode()}))}
 function render(){
-const root=document.getElementById('root');const families=getFamilies();const curCode=getCurrentCode();const curFam=curCode?families[curCode]:null;const curUser=getCurrentUser();
-if(view==='chat'&&curFam){
-root.innerHTML=`
-<div class="chat-layout">
-<div class="overlay" id="overlay" onclick="toggleSidebar(false)"></div>
-<div class="sidebar" id="sidebar">
-<div style="padding:14px 16px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center"><div><b>${curFam.familyName}</b><div style="font-size:11px" id="conn-status"><span class="status-dot"></span> Connecting...</div><div style="font-size:11px;opacity:.6">You: ${curUser?curUser.name:'?'} • ${curFam.code}</div></div><button class="btn btn-light" style="padding:6px 10px" onclick="toggleSidebar(false)">✕</button></div>
-<div style="flex:1;overflow:auto;padding:12px">${curFam.members.map(m=>`<div class="member-row"><span style="font-size:22px">${m.emoji}</span><div style="flex:1"><div style="font-weight:700;font-size:13px">${m.name} ${curUser&&curUser.name===m.name?'(You)':''}</div><div style="font-size:11px;opacity:.6">${m.role} • ${m.age||''}</div></div><span class="status-dot"></span></div>`).join('')}<div style="margin-top:16px;padding:10px;background:#fff7ed;border:1px dashed #fed7aa;border-radius:12px;font-size:11px"><b>Invite</b><br><input class="input" style="font-size:10px;padding:8px;margin-top:6px" value="${location.origin+location.pathname+'#invite='+btoa(unescape(encodeURIComponent(JSON.stringify({n:curFam.familyName,m:curFam.members,c:curFam.code}))))}" readonly onclick="this.select();navigator.clipboard.writeText(this.value)"></div></div>
-<div style="padding:12px;border-top:1px solid #eee;display:flex;gap:8px"><button class="btn btn-light" style="flex:1;font-size:12px" onclick="view='landing';render()">↩ Switch</button><button class="btn" style="flex:1;font-size:12px;background:#fee2e2;color:#ef4444" onclick="if(confirm('Leave?')){const f=getFamilies();delete f['${curCode}'];saveFamilies(f);localStorage.removeItem(LS_CUR_CODE);view='landing';render()}">Leave</button></div>
-</div>
-<div class="main">
-<div class="topbar"><div style="display:flex;gap:8px;align-items:center;min-width:0"><button class="btn btn-light" style="padding:8px 10px" onclick="toggleSidebar(true)">☰</button><div style="min-width:0"><b style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${curFam.familyName} • ${curFam.code}</b><div style="font-size:10px;opacity:.6">Tap ☰ for members • E2E Encrypted</div></div></div><div style="display:flex;gap:6px;flex-shrink:0"><button class="btn btn-black" style="padding:8px 12px;font-size:12px" onclick="alert('Voice call needs signaling server live - deploy famline-signaling on Render')">📞 Call</button><button class="btn btn-light" style="padding:8px 12px;font-size:12px" onclick="alert('Video call needs signaling server')">📹 Video</button></div></div>
-<div id="messages" style="flex:1;overflow:auto;padding:12px 14px;display:flex;flex-direction:column;background:#fdf6ec"><div style="text-align:center;padding:10px 0 16px"><div style="background:white;padding:10px 14px;border-radius:14px;display:inline-block;border:1px solid #eee;font-size:12px;max-width:90%">🔒 Encrypted family chat<br><span style="opacity:.6;font-size:11px">Messages sync P2P when family online. Code: ${curFam.code}</span></div></div><div id="msg-list" style="display:flex;flex-direction:column"></div></div>
-<div style="padding:10px;background:white;border-top:1px solid #eee;display:flex;gap:8px;align-items:center"><input id="msg-input" class="input" placeholder="Message as ${curUser?curUser.name:'You'}..." onkeydown="if(event.key==='Enter')sendMsg()" style="flex:1"><button class="btn btn-black" onclick="sendMsg()" style="flex-shrink:0">Send</button></div>
-</div></div>`;
-const key='famline_msgs_'+curCode;const msgs=JSON.parse(localStorage.getItem(key)||'[]');msgs.forEach(m=>appendMsg(m));connectSignaling();setTimeout(()=>{const c=document.getElementById('messages');if(c)c.scrollTop=c.scrollHeight},100);return;
-}
-const existing=Object.keys(families);
-root.innerHTML=`
-<div style="max-width:520px;margin:0 auto;padding:16px;overflow:auto;height:100vh">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><h2 style="margin:0;font-size:20px">FamLine</h2><span class="badge">SECURE • PRIVATE • YOURS</span></div>
-${existing.length?`<div class="card" style="margin-bottom:14px"><h4 style="margin:0 0 10px;font-size:14px">Your families</h4>${existing.map(c=>{const f=families[c];return `<div class="member-row" style="justify-content:space-between"><div style="flex:1;min-width:0"><b>${f.familyName}</b> • <span style="font-size:10px">${f.code}</span><br><span style="font-size:11px;opacity:.6">${f.members.map(m=>m.name).join(', ')}</span></div><button class="btn btn-orange" style="padding:8px 14px" onclick="setCurrentCode('${c}');const f=getFamilies()['${c}'];setCurrentUser({name:f.members[0].name,role:f.members[0].role});view='chat';render()">Open</button></div>`}).join('')}<button onclick="if(confirm('Clear all?')){localStorage.clear();location.reload()}" style="background:none;border:0;color:#ef4444;font-size:12px;margin-top:8px">Clear all</button></div>`:''}
-<div class="card" style="margin-bottom:14px"><h1 style="margin:0 0 6px;font-size:20px">Your Family, Private & Secure</h1><p style="opacity:.7;font-size:12px;margin:0 0 16px;line-height:1.5">No cloud. Each device joins as its own account. Messages sync when family online.</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button class="btn btn-black" onclick="view='create';render()">+ Create</button><button class="btn" style="background:white;border:2px solid #111" onclick="view='join';render()">↪ Join</button></div></div>
-${view==='create'?`<div class="card" style="margin-bottom:14px"><h3 style="margin:0 0 4px;font-size:16px">Create Family</h3><label style="font-size:10px;font-weight:700">FAMILY NAME</label><input id="c-fname" class="input" value="Nehme" style="margin:5px 0 10px"><div>${createMembers.map((m,i)=>`<div class="member-row"><span style="font-size:18px">${m.emoji}</span><input class="input" style="flex:1;padding:8px" value="${m.name}" onchange="createMembers[${i}].name=this.value"><select class="input" style="width:100px;padding:8px" onchange="createMembers[${i}].role=this.value"><option ${m.role==='Father'?'selected':''}>Father</option><option ${m.role==='Mother'?'selected':''}>Mother</option><option ${m.role==='Son'?'selected':''}>Son</option><option ${m.role==='Daughter'?'selected':''}>Daughter</option></select><button onclick="createMembers.splice(${i},1);render()" style="border:0;background:#fee2e2;padding:6px 8px;border-radius:8px">✕</button></div>`).join('')}</div><button class="btn btn-light" style="width:100%;margin:8px 0;font-size:12px" onclick="createMembers.push({name:'',role:'Son',emoji:'👤',age:'Kid'});render()">+ Add Member</button><label style="font-size:10px;font-weight:700">FAMILY PASSWORD</label><input id="c-pwd" class="input" type="password" placeholder="Secret only family knows" style="margin:5px 0 10px"><label style="font-size:10px;font-weight:700">YOUR NAME</label><input id="c-myname" class="input" value="Abdallah" style="margin:5px 0 12px"><button class="btn btn-black" style="width:100%" onclick="doCreate()">Create → Get Invite Link</button><div id="c-result" style="display:none;margin-top:12px"></div></div>`:''}
-${view==='join'?`<div class="card" style="border:2px solid #f97316"><h3 style="margin:0 0 6px;font-size:16px">Join Family</h3><p style="font-size:11px;opacity:.7;margin:0 0 12px">Code + Password + Your Name. Each phone as itself.</p><label style="font-size:10px;font-weight:700">FAMILY CODE</label><input id="j-code" class="input" placeholder="FAM-XXXX-XXXX" value="${joinPrefillCode}" style="text-transform:uppercase;margin:5px 0 10px"><label style="font-size:10px;font-weight:700">FAMILY PASSWORD</label><input id="j-pwd" class="input" type="password" placeholder="Family password" style="margin:5px 0 10px"><label style="font-size:10px;font-weight:700">YOUR NAME</label><input id="j-name" class="input" placeholder="Talia / Nado" style="margin:5px 0 10px"><label style="font-size:10px;font-weight:700">YOUR ROLE</label><select id="j-role" class="input" style="margin:5px 0 14px"><option>Father</option><option>Mother</option><option>Son</option><option selected>Daughter</option></select><button class="btn btn-black" style="width:100%" onclick="doJoin()">Join as Me → Enter Chat</button><div id="j-err" style="color:#ef4444;font-size:12px;margin-top:8px;display:none"></div></div>`:''}
-</div>`;
+ const root=document.getElementById('root');const families=getFamilies();const curCode=getCurrentCode();const curFam=curCode?families[curCode]:null;const curUser=getCurrentUser();
+ if(view==='chat'&&curFam){
+  root.innerHTML=`<div class="chat-layout"><div class="sidebar"><div style="padding:14px;border-bottom:1px solid #eee"><b>${curFam.familyName}</b> <span style="font-size:10px;background:#111;color:white;padding:3px 8px;border-radius:999px">${curFam.code}</span><div style="font-size:11px;opacity:.6">You: ${curUser?curUser.name:'?'} • Live sync</div></div><div style="flex:1;overflow:auto;padding:12px">${curFam.members.map(m=>`<div class="member-row"><span style="font-size:20px">${m.emoji}</span><div style="flex:1"><b style="font-size:13px">${m.name} ${curUser&&curUser.name===m.name?'(You)':''}</b><div style="font-size:11px;opacity:.6">${m.role}</div></div></div>`).join('')}</div><div style="padding:12px;border-top:1px solid #eee"><button class="btn" style="width:100%;background:#fff;border:1px solid #ddd;font-size:12px" onclick="view='landing';render()">↩ Switch</button></div></div><div class="main"><div class="topbar"><b>${curFam.familyName} • ${curFam.code}</b><div style="display:flex;gap:6px"><button class="btn btn-black" style="padding:8px 12px;font-size:12px" onclick="startCall(false)">📞 Call</button><button class="btn" style="padding:8px 12px;font-size:12px;background:white;border:1px solid #ddd" onclick="startCall(true)">📹 Video</button></div></div><div id="messages" style="flex:1;overflow:auto;padding:12px"><div id="msg-list"></div></div><div style="padding:10px;background:white;border-top:1px solid #eee;display:flex;gap:8px"><input id="msg-input" class="input" placeholder="Message as ${curUser?curUser.name:'You'}..." onkeydown="if(event.key==='Enter')sendMsg()"><button class="btn btn-black" onclick="sendMsg()">Send</button></div></div></div>`;
+  const key='famline_msgs_'+curCode;const msgs=JSON.parse(localStorage.getItem(key)||'[]');msgs.forEach(appendMsg);connectSignaling();return;
+ }
+ const existing=Object.keys(families);
+ root.innerHTML=`<div style="max-width:520px;margin:0 auto;padding:20px"><h2>FamLine</h2>${existing.length?`<div class="card"><h4>Your families</h4>${existing.map(c=>{const f=families[c];return `<div class="member-row" style="justify-content:space-between"><div><b>${f.familyName}</b> • ${f.code}</div><button class="btn btn-black" style="padding:8px 14px" onclick="setCurrentCode('${c}');view='chat';render()">Open</button></div>`}).join('')}</div>`:''}<div class="card"><h3>Your Family, Private & Secure</h3><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px"><button class="btn btn-black" onclick="view='create';render()">+ Create</button><button class="btn" style="background:white;border:2px solid #111" onclick="view='join';render()">↪ Join</button></div></div>${view==='create'?`<div class="card"><h3>Create Family</h3><label>FAMILY NAME</label><input id="c-fname" class="input" value="Nehme" style="margin:6px 0 12px"><div>${createMembers.map((m,i)=>`<div class="member-row"><span>${m.emoji}</span><input class="input" style="flex:1" value="${m.name}" onchange="createMembers[${i}].name=this.value"><button onclick="createMembers.splice(${i},1);render()" style="border:0;background:#fee2e2;padding:6px;border-radius:8px">✕</button></div>`).join('')}</div><button class="btn" style="width:100%;background:#fff;border:1px dashed #ccc;margin:8px 0" onclick="createMembers.push({name:'',role:'Member',emoji:'👤'});render()">+ Add</button><label>FAMILY PASSWORD</label><input id="c-pwd" class="input" type="password" style="margin:6px 0 12px"><label>YOUR NAME</label><input id="c-myname" class="input" value="Abdallah" style="margin:6px 0 12px"><button class="btn btn-black" onclick="doCreate()">Create</button><div id="c-result" style="display:none;margin-top:12px"></div></div>`:''}${view==='join'?`<div class="card" style="border:2px solid #f97316"><h3>Join Family</h3><label>FAMILY CODE</label><input id="j-code" class="input" placeholder="FAM-XXXX-XXXX" value="${joinPrefillCode}" style="text-transform:uppercase;margin:6px 0 12px"><label>FAMILY PASSWORD</label><input id="j-pwd" class="input" type="password" style="margin:6px 0 12px"><label>YOUR NAME</label><input id="j-name" class="input" placeholder="Talia / Nado" style="margin:6px 0 12px"><label>ROLE</label><select id="j-role" class="input" style="margin:6px 0 14px"><option>Father</option><option>Mother</option><option>Son</option><option selected>Daughter</option></select><button class="btn btn-black" onclick="doJoin()">Join as Me</button><div id="j-err" style="color:#ef4444;font-size:12px;margin-top:8px;display:none"></div></div>`:''}</div>`;
 }
 function doCreate(){
-const famName=document.getElementById('c-fname').value.trim()||'Nehme';const pwd=document.getElementById('c-pwd').value.trim();const myName=document.getElementById('c-myname').value.trim()||createMembers[0].name;
-if(!pwd){alert('Set password!');return;}if(createMembers.some(m=>!m.name.trim())){alert('Fill names');return;}
-const code=genCode();const fam={familyName:famName,name:famName,code:code,familyCode:code,members:createMembers,password:pwd,createdAt:Date.now()};
-const all=getFamilies();all[code]=fam;saveFamilies(all);setCurrentCode(code);setCurrentUser({name:myName,role:createMembers.find(m=>m.name===myName)?.role||'Father'});localStorage.setItem('famline_family_v2',JSON.stringify(fam));
-const payload={n:famName,m:fam.members,c:code,full:fam.members};const b64=btoa(unescape(encodeURIComponent(JSON.stringify(payload))));const invite=location.origin+location.pathname+'#invite='+b64;
-const res=document.getElementById('c-result');res.style.display='block';res.innerHTML=`<div style="background:#f0fdf4;border:1px solid #bbf7d0;padding:10px;border-radius:12px;font-size:12px"><b>${famName} created! Code: ${code}</b><br><br><input class="input" style="font-size:11px;padding:8px" value="${invite}" readonly onclick="this.select();navigator.clipboard.writeText(this.value)"><br><br><button class="btn btn-black" style="width:100%" onclick="view='chat';render()">Enter Chat →</button></div>`;
+ const famName=document.getElementById('c-fname').value.trim()||'Nehme';const pwd=document.getElementById('c-pwd').value.trim();const myName=document.getElementById('c-myname').value.trim()||createMembers[0].name;
+ if(!pwd){alert('Set password');return}const code=genCode();const fam={familyName:famName,name:famName,code:code,familyCode:code,members:createMembers,password:pwd};const all=getFamilies();all[code]=fam;saveFamilies(all);setCurrentCode(code);setCurrentUser({name:myName,role:createMembers.find(m=>m.name===myName)?.role||'Father'});localStorage.setItem('famline_family_v2',JSON.stringify(fam));const b64=btoa(unescape(encodeURIComponent(JSON.stringify({n:famName,m:fam.members,c:code}))));const invite=location.origin+location.pathname+'#invite='+b64;document.getElementById('c-result').style.display='block';document.getElementById('c-result').innerHTML=`Created ${famName} Code: ${code}<br><input class="input" value="${invite}" readonly onclick="this.select()"><br><button class="btn btn-black" onclick="view='chat';render()">Enter Chat</button>`;
 }
 function doJoin(){
-const code=(document.getElementById('j-code').value||'').trim().toUpperCase();const pwd=(document.getElementById('j-pwd').value||'').trim();const myName=(document.getElementById('j-name').value||'').trim();const role=document.getElementById('j-role').value;const errEl=document.getElementById('j-err');
-if(!code||!pwd||!myName){errEl.style.display='block';errEl.textContent='Fill code, password, name';return;}
-let all=getFamilies();let fam=all[code];let inviteData=null;if(location.hash.includes('invite=')){try{const b64=location.hash.split('invite=')[1];inviteData=JSON.parse(decodeURIComponent(escape(atob(b64))));}catch{}}
-if(!fam){
-if(inviteData){const mems=(inviteData.full||[]).length?inviteData.full:(inviteData.m||[]).map(n=>typeof n==='string'?{name:n,role:'Member',emoji:'👤'}:n);const list=mems.length?mems:[{name:'Abdallah',role:'Father',emoji:'👨'},{name:'Nado',role:'Mother',emoji:'👩'},{name:'Talia',role:'Daughter',emoji:'👧'},{name:'Mohamad',role:'Son',emoji:'👦'},{name:'Perla',role:'Daughter',emoji:'👧'}];if(!list.find(x=>x.name.toLowerCase()===myName.toLowerCase()))list.push({name:myName,role:role,emoji:role==='Father'?'👨':role==='Mother'?'👩':role==='Son'?'👦':'👧'});fam={familyName:inviteData.n||'Nehme',name:inviteData.n||'Nehme',code:code,familyCode:code,members:list,password:pwd,createdAt:Date.now()}}
-else{fam={familyName:'Nehme',name:'Nehme',code:code,familyCode:code,members:[{name:'Abdallah',role:'Father',emoji:'👨'},{name:'Nado',role:'Mother',emoji:'👩'},{name:'Talia',role:'Daughter',emoji:'👧'},{name:'Mohamad',role:'Son',emoji:'👦'},{name:'Perla',role:'Daughter',emoji:'👧'}],password:pwd,createdAt:Date.now()};if(!fam.members.find(x=>x.name.toLowerCase()===myName.toLowerCase()))fam.members.push({name:myName,role:role,emoji:'👤'})}
-all[code]=fam;saveFamilies(all)
-}else{if(fam.password&&fam.password!==pwd){errEl.style.display='block';errEl.textContent='Wrong password';return}if(!fam.members.find(x=>x.name.toLowerCase()===myName.toLowerCase())){fam.members.push({name:myName,role:role,emoji:role==='Father'?'👨':role==='Mother'?'👩':role==='Son'?'👦':'👧'});all[code]=fam;saveFamilies(all)}}
-localStorage.setItem('famline_family_v2',JSON.stringify(fam));setCurrentCode(code);setCurrentUser({name:myName,role:role});view='chat';render();
+ const code=(document.getElementById('j-code').value||'').trim().toUpperCase();const pwd=(document.getElementById('j-pwd').value||'').trim();const myName=(document.getElementById('j-name').value||'').trim();const role=document.getElementById('j-role').value;const err=document.getElementById('j-err');
+ if(!code||!pwd||!myName){err.style.display='block';err.textContent='Fill all';return}
+ let all=getFamilies();let fam=all[code];if(!fam){fam={familyName:'Nehme',name:'Nehme',code:code,familyCode:code,members:[{name:'Abdallah',role:'Father',emoji:'👨'},{name:'Nado',role:'Mother',emoji:'👩'},{name:'Talia',role:'Daughter',emoji:'👧'},{name:'Mohamad',role:'Son',emoji:'👦'},{name:'Perla',role:'Daughter',emoji:'👧'}],password:pwd};if(!fam.members.find(x=>x.name.toLowerCase()===myName.toLowerCase()))fam.members.push({name:myName,role:role,emoji:'👤'});all[code]=fam;saveFamilies(all)}else{if(fam.password&&fam.password!==pwd){err.style.display='block';err.textContent='Wrong pwd';return}if(!fam.members.find(x=>x.name.toLowerCase()===myName.toLowerCase())){fam.members.push({name:myName,role:role,emoji:'👤'});all[code]=fam;saveFamilies(all)}}
+ localStorage.setItem('famline_family_v2',JSON.stringify(fam));setCurrentCode(code);setCurrentUser({name:myName,role:role});view='chat';render();
 }
-function sendMsg(){
-const input=document.getElementById('msg-input');if(!input||!input.value.trim())return;
-const text=input.value.trim();const curUser=getCurrentUser()||{name:'You',role:''};const code=getCurrentCode();
-const key='famline_msgs_'+code;const msgs=JSON.parse(localStorage.getItem(key)||'[]');const msg={sender:curUser.name,role:curUser.role,text:text,ts:Date.now()};msgs.push(msg);localStorage.setItem(key,JSON.stringify(msgs));appendMsg(msg);input.value='';
-if(ws&&ws.readyState===1){ws.send(JSON.stringify({type:'chat',familyCode:code,sender:msg.sender,role:msg.role,text:msg.text,ts:msg.ts}))}
-}
-(function(){
-const p=new URLSearchParams(location.search);if(p.has('reset')){localStorage.clear();history.replaceState(null,'',location.pathname);}
-if(p.has('join')){joinPrefillCode=p.get('join').toUpperCase();view='join';}
-if(location.hash.includes('invite=')){try{const b64=location.hash.split('invite=')[1];const data=JSON.parse(decodeURIComponent(escape(atob(b64))));joinPrefillCode=data.c||'';view='join';}catch{}}
-const curCode=getCurrentCode();const fams=getFamilies();if(curCode&&fams[curCode]&&view!=='join'){view='chat';}
-render();
-})();
-</script>
-</body>
-</html>
+function sendMsg(){const input=document.getElementById('msg-input');if(!input||!input.value.trim())return;const text=input.value.trim();const cur=getCurrentUser()||{name:'You',role:''};const code=getCurrentCode();const key='famline_msgs_'+code;const msgs=JSON.parse(localStorage.getItem(key)||'[]');const msg={sender:cur.name,role:cur.role,text:text,ts:Date.now()};msgs.push(msg);localStorage.setItem(key,JSON.stringify(msgs));appendMsg(msg);input.value='';if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'chat',familyCode:code,sender:msg.sender,role:msg.role,text:msg.text,ts:msg.ts}));}
+(function(){const p=new URLSearchParams(location.search);if(p.has('reset')){localStorage.clear();history.replaceState(null,'',location.pathname)}if(p.has('join')){joinPrefillCode=p.get('join').toUpperCase();view='join'}if(location.hash.includes('invite=')){try{const b64=location.hash.split('invite=')[1];const data=JSON.parse(decodeURIComponent(escape(atob(b64))));joinPrefillCode=data.c||'';view='join'}catch{}}const cur=getCurrentCode();const fams=getFamilies();if(cur&&fams[cur]&&view!=='join'){view='chat'}render()})();
+</script></body></html>
