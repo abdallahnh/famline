@@ -71,91 +71,114 @@ async function initPWA(){
 }
 function urlBase64ToUint8Array(b64){const p='='.repeat((4-b64.length%4)%4);const base=(b64+p).replace(/-/g,'+').replace(/_/g,'/');const raw=atob(base);const out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);return out;}
 async function createPC(isVideo){
-  // FIX 2nd call: Force close any old PC first
+  // Kill any old PC first - wait for it to fully close
   if(pc){
     try{
-      pc.ontrack=null; pc.onicecandidate=null;
-      pc.onconnectionstatechange=null; pc.oniceconnectionstatechange=null;
-      pc.close();
+      const oldPc = pc;
+      pc=null; // Set null immediately so no other code uses closing pc
+      oldPc.ontrack=null;
+      oldPc.onicecandidate=null;
+      oldPc.onconnectionstatechange=null;
+      oldPc.oniceconnectionstatechange=null;
+      try{oldPc.close();}catch{}
+      console.log('Old PC closed');
     }catch(e){}
-    pc=null;
-    // Small delay to let browser clean up old PC
-    await new Promise(r=>setTimeout(r, 100));
+    await new Promise(r=>setTimeout(r, 200));
   }
 
-  // FIX iPhone mic permission: Reuse existing stream if still valid (keeps permission)
+  // Clean dead stream
   if(localStream){
-    const hasAudio = localStream.getAudioTracks().some(t=>t.readyState==='live');
-    const hasVideo = isVideo? localStream.getVideoTracks().some(t=>t.readyState==='live') : true;
-    if(hasAudio && hasVideo){
-      console.log('Reusing existing stream to avoid iPhone permission popup');
-    } else {
-      // Stream exists but dead, stop it and get new one
-      try{localStream.getTracks().forEach(t=>{try{t.stop()}catch{}});}catch{}
-      localStream=null;
+    try{
+      localStream.getTracks().forEach(t=>{
+        try{if(t.readyState!=='live' ||!t.enabled) t.stop();}catch{}
+      });
+      const hasLive = localStream.getTracks().some(t=>t.readyState==='live');
+      if(!hasLive) localStream=null;
+    }catch{localStream=null;}
+  }
+
+  // Create new PC - retry once if fails
+  let attempts=0;
+  while(attempts<2){
+    try{
+      pc=new RTCPeerConnection({
+        iceServers:[
+          {urls:'stun:stun.l.google.com:19302'},
+          {urls:'stun:stun1.l.google.com:19302'},
+          {urls:'stun:stun2.l.google.com:19302'},
+          {urls:'stun:stun3.l.google.com:19302'},
+          {urls:'turn:openrelay.metered.ca:80', username:'openrelayproject', credential:'openrelayproject'},
+          {urls:'turn:openrelay.metered.ca:443', username:'openrelayproject', credential:'openrelayproject'},
+          {urls:'turn:openrelay.metered.ca:443?transport=tcp', username:'openrelayproject', credential:'openrelayproject'}
+        ],
+        iceCandidatePoolSize:10,
+        bundlePolicy:'max-bundle',
+        rtcpMuxPolicy:'require'
+      });
+      break; // Success
+    }catch(e){
+      attempts++;
+      console.error('PC create failed attempt', attempts, e);
+      pc=null;
+      await new Promise(r=>setTimeout(r, 300));
+      if(attempts>=2) throw new Error('No PC - RTCPeerConnection failed: '+e.message);
     }
   }
 
-  pc=new RTCPeerConnection({
-    iceServers:[
-      {urls:'stun:stun.l.google.com:19302'},
-      {urls:'stun:stun1.l.google.com:19302'},
-      {urls:'stun:stun2.l.google.com:19302'},
-      {urls:'stun:stun3.l.google.com:19302'},
-      {urls:'stun:stun4.l.google.com:19302'},
-      {urls:'turn:openrelay.metered.ca:80', username:'openrelayproject', credential:'openrelayproject'},
-      {urls:'turn:openrelay.metered.ca:443', username:'openrelayproject', credential:'openrelayproject'},
-      {urls:'turn:openrelay.metered.ca:443?transport=tcp', username:'openrelayproject', credential:'openrelayproject'}
-    ],
-    iceCandidatePoolSize:10,
-    bundlePolicy:'max-bundle',
-    rtcpMuxPolicy:'require'
-  });
+  if(!pc) throw new Error('No PC - failed to create after 2 tries');
+
   pc._q=[]; pc._remoteSet=false;
-  pc.onicecandidate=e=>{if(e.candidate&&ws&&ws.readyState===1){const ch=window._currentCallChannel||getCurrentCode(); ws.send(JSON.stringify({type:'ice',familyCode:getCurrentCode(),callChannel:ch,candidate:e.candidate}))}};
+  pc.onicecandidate=e=>{
+    if(e.candidate&&ws&&ws.readyState===1){
+      const ch=window._currentCallChannel||getCurrentCode();
+      ws.send(JSON.stringify({type:'ice',familyCode:getCurrentCode(),callChannel:ch,candidate:e.candidate}))
+    }
+  };
   pc.oniceconnectionstatechange=()=>{if(pc&&pc.iceConnectionState==='failed'){try{pc.restartIce()}catch{}}};
   pc.ontrack=e=>{
+    if(!pc) return;
     if(e.track.kind==='video'){
       const rv=document.getElementById('remoteVideo');
-      rv.srcObject=e.streams[0]; rv.play().catch(()=>{});
+      if(rv){rv.srcObject=e.streams[0]; rv.play().catch(()=>{});}
     }
     if(e.track.kind==='audio'){
       const audio=document.getElementById('remoteAudio');
-      if(audio.srcObject!==e.streams[0]){
+      if(audio&&audio.srcObject!==e.streams[0]){
         audio.srcObject=e.streams[0];
         audio.play().catch(()=>{
-          document.getElementById('callStatus').textContent='Tap to enable sound 🔊';
-          document.getElementById('callStatus').onclick=()=>{audio.play(); document.getElementById('remoteVideo').play();};
+          const st=document.getElementById('callStatus');
+          if(st){st.textContent='Tap to enable sound 🔊'; st.onclick=()=>{audio.play(); document.getElementById('remoteVideo')?.play();};}
         });
       }
     }
-    document.getElementById('callStatus').textContent='Connected ✅';
+    const st=document.getElementById('callStatus');
+    if(st) st.textContent='Connected ✅';
   };
   pc.onconnectionstatechange=()=>{
     if(!pc) return;
-    document.getElementById('callStatus').textContent='Call: '+pc.connectionState;
-    if(pc.connectionState==='failed'||pc.connectionState==='disconnected'){setTimeout(()=>{try{pc.restartIce()}catch{}},1000);}
+    const st=document.getElementById('callStatus');
+    if(st) st.textContent='Call: '+pc.connectionState;
+    if(pc.connectionState==='failed'||pc.connectionState==='disconnected'){
+      setTimeout(()=>{try{if(pc) pc.restartIce()}catch{}},1000);
+    }
   };
 
-  // Only request new media if we don't have reusable stream
-  if(!localStream){
+  // Get media - always fresh after cancel
+  if(!localStream || localStream.getTracks().filter(t=>t.readyState==='live').length===0){
     try{
-      const constraints=isVideo?{video:{facingMode:'user',width:{ideal:640},height:{ideal:480}}, audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}:{audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}};
+      const constraints=isVideo
+       ?{video:{facingMode:'user',width:{ideal:640},height:{ideal:480}}, audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}
+        :{audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}};
       localStream=await navigator.mediaDevices.getUserMedia(constraints);
-      console.log('Got new stream for', isVideo?'video':'voice', localStream.getTracks().length+' tracks');
     }catch(err){
-      console.log('Video failed, trying audio only', err);
+      console.log('Video failed, trying audio', err);
       try{localStream=await navigator.mediaDevices.getUserMedia({audio:true});}
-      catch(err2){alert('Mic needed: '+err2.message); throw err2;}
+      catch(err2){throw new Error('Mic needed: '+err2.message);}
     }
-  } else {
-    // Re-enable tracks that were disabled in endCall (iPhone fix)
-    localStream.getTracks().forEach(t=>{t.enabled=true;});
-    console.log('Reused stream, tracks re-enabled');
   }
 
-  if(!localStream) throw new Error('No stream - mic denied');
-  if(!pc) throw new Error('No PC - failed to create');
+  if(!localStream) throw new Error('No stream');
+  if(!pc) throw new Error('No PC after media');
 
   localStream.getTracks().forEach(track=>{
     if(track && pc && pc.signalingState!=='closed' && track.readyState==='live'){
@@ -164,9 +187,11 @@ async function createPC(isVideo){
   });
 
   const lv=document.getElementById('localVideo');
-  lv.srcObject=localStream; lv.muted=true; lv.playsInline=true; lv.play().catch(()=>{});
-  lv.style.display='block';
-  document.getElementById('remoteVideo').style.display='block';
+  if(lv){lv.srcObject=localStream; lv.muted=true; lv.playsInline=true; lv.play().catch(()=>{}); lv.style.display='block';}
+  const rv=document.getElementById('remoteVideo');
+  if(rv) rv.style.display='block';
+
+  console.log('PC created OK, ready for call, channel', window._currentCallChannel);
   return pc;
 }
 async function startCall(isVideo){
@@ -214,57 +239,54 @@ async function handleOffer(m){
   }catch(e){console.error(e); alert('Answer failed: '+e.message); endCall(); sessionStorage.removeItem('pendingCall');}
 }
 function endCall(){
-  console.log('Ending call - FIX for 2nd call + iPhone permission');
-  document.getElementById('callModal').classList.remove('show');
+  console.log('Ending call - full cleanup for 2nd call');
 
-  // FIX iPhone: DON'T stop tracks with.stop() - that revokes permission and causes popup next time
-  // Instead just disable them, keep stream alive for next call
-  if(localStream){
+  const ch=window._currentCallChannel;
+  // Send end BEFORE nulling channel
+  if(ws&&ws.readyState===1&&getCurrentCode()){
     try{
-      localStream.getTracks().forEach(t=>{
-        try{
-          // Disable but don't stop - keeps iPhone permission granted
-          t.enabled=false;
-          // For video, stop only video tracks to turn off camera light, but keep audio
-          if(t.kind==='video'){
-            try{t.stop();}catch{}
-          }
-        }catch{}
-      });
-      console.log('Tracks disabled (not stopped) to keep iPhone permission');
+      ws.send(JSON.stringify({type:'call-end',familyCode:getCurrentCode(),callChannel:ch||getCurrentCode()+'_call_'+(getCurrentUser()?.name||'unknown')}));
     }catch{}
-    // DON'T set localStream=null for audio - keep it for reuse
-    // Only null it if all tracks are dead
-    const stillLive = localStream.getTracks().some(t=>t.readyState==='live');
-    if(!stillLive){
-      localStream=null;
-      console.log('All tracks dead, cleared stream');
-    }
+  }
+  window._currentCallChannel=null;
+
+  document.getElementById('callModal')?.classList.remove('show');
+
+  // Close PC first
+  if(pc){
+    const oldPc=pc;
+    pc=null; // Null immediately so no race
+    try{
+      oldPc.ontrack=null; oldPc.onicecandidate=null;
+      oldPc.onconnectionstatechange=null; oldPc.oniceconnectionstatechange=null;
+      oldPc.close();
+    }catch(e){}
+    console.log('PC nulled');
   }
 
-  if(pc){
+  // Stop tracks to hide mic island (your screenshot)
+  if(localStream){
     try{
-      pc.ontrack=null; pc.onicecandidate=null;
-      pc.onconnectionstatechange=null; pc.oniceconnectionstatechange=null;
-      pc.close();
-    }catch(e){console.error('pc close fail',e);}
-    pc=null;
-    console.log('PC closed and nulled - ready for next call');
+      localStream.getTracks().forEach(t=>{try{t.stop()}catch{}});
+    }catch{}
+    localStream=null;
+    console.log('Stream stopped, mic island will hide');
   }
 
   try{
-    document.getElementById('localVideo').srcObject=null;
-    document.getElementById('remoteVideo').srcObject=null;
-    document.getElementById('remoteAudio').srcObject=null;
+    const lv=document.getElementById('localVideo');
+    const rv=document.getElementById('remoteVideo');
+    const ra=document.getElementById('remoteAudio');
+    if(lv) lv.srcObject=null;
+    if(rv) rv.srcObject=null;
+    if(ra) ra.srcObject=null;
   }catch{}
 
-  const ch=window._currentCallChannel;
-  window._currentCallChannel=null;
-  if(ws&&ws.readyState===1&&getCurrentCode()){
-    ws.send(JSON.stringify({type:'call-end',familyCode:getCurrentCode(),callChannel:ch||getCurrentCode()+'_call_'+(getCurrentUser()?.name||'unknown')}));
-  }
   sessionStorage.removeItem('pendingCall');
-  console.log('Call ended - pc=null, stream kept for iPhone, ready for next call');
+  // Clear any queued ICE
+  if(pc&&pc._q) pc._q=[];
+
+  console.log('Call fully ended - ready for next call');
 }
 function toggleMute(){if(!localStream) return; isMuted=!isMuted; localStream.getAudioTracks().forEach(t=>t.enabled=!isMuted); document.getElementById('muteBtn').textContent=isMuted?'🔇 Unmute':'🎤 Mute';}
 function toggleCam(){if(!localStream) return; const v=localStream.getVideoTracks(); if(!v.length) return; camOff=!camOff; v.forEach(t=>t.enabled=!camOff); document.getElementById('camBtn').textContent=camOff?'📹 Cam On':'📹 Cam Off';}
