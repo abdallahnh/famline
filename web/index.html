@@ -219,9 +219,17 @@ async function handleOffer(m){
   window._currentCallChannel = channel;
   console.log('Incoming call from', callerName, 'on', channel);
   sessionStorage.setItem('pendingCall', JSON.stringify(m));
-  if(!confirm(`${callerName} calling ${m.isVideo?'video':'voice'} call. Answer?`)){
+    if(!confirm(`${callerName} calling ${m.isVideo?'video':'voice'} call. Answer?`)){
     if(ws) ws.send(JSON.stringify({type:'call-declined',familyCode:getCurrentCode(),callChannel:channel}));
-    sessionStorage.removeItem('pendingCall'); return;
+    // FIX: Clean up even on decline, so next call works
+    window._currentCallChannel=null;
+    sessionStorage.removeItem('pendingCall');
+    // Make sure pc is null after decline
+    if(pc){
+      try{pc.close();}catch{}
+      pc=null;
+    }
+    return;
   }
   document.getElementById('callModal').classList.add('show');
   document.getElementById('callTitle').textContent=`${callerName} is calling...`;
