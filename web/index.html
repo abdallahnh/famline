@@ -45,50 +45,39 @@ self.addEventListener('push', e=>{
   
 
 <script>
-// PATCH: Auto invite link + cross-device family import
 (function(){
-  function getFamilyConfig(){
-    try{ return JSON.parse(localStorage.getItem('famline_family_v2')||localStorage.getItem('famline_family')||'null'); }catch(e){return null;}
+  // Add ?reset=1 or ?leave=1 support
+  const params = new URLSearchParams(location.search);
+  if(params.has('reset') || params.has('leave') || params.has('logout')){
+    localStorage.removeItem('famline_family_v2');
+    localStorage.removeItem('famline_family');
+    localStorage.removeItem('famline_current_user');
+    localStorage.removeItem('famline_messages');
+    localStorage.removeItem('famline_wizard_done');
+    alert('Family data cleared! Now re-join Nehme family.');
+    history.replaceState(null,'',location.pathname);
+    location.reload();
   }
-  function makeInviteLink(){
-    const cfg = getFamilyConfig();
-    if(!cfg) return null;
-    const data = btoa(unescape(encodeURIComponent(JSON.stringify({n:cfg.familyName||cfg.name,m:cfg.members,c:cfg.code||cfg.familyCode,p:cfg.code||''}))));
-    return location.origin+location.pathname+'#invite='+data;
-  }
-  // Show invite UI
+  // Inject Leave/Switch button in header if not exists
   setInterval(()=>{
-    const cfg = getFamilyConfig();
-    if(!cfg) return;
-    let el = document.getElementById('famline-invite-banner');
-    if(!el){
-      el = document.createElement('div');
-      el.id='famline-invite-banner';
-      el.style.cssText='position:fixed;bottom:80px;left:12px;right:12px;z-index:9999;background:#111827;color:white;padding:12px 14px;border-radius:14px;font-family:system-ui;display:flex;flex-direction:column;gap:8px;box-shadow:0 8px 30px rgba(0,0,0,.3)';
-      document.body.appendChild(el);
-    }
-    const link = makeInviteLink();
-    if(link){
-      el.innerHTML = `<div style="font-weight:700">👨‍👩‍👧‍👦 Invite Family</div>
-      <div style="font-size:12px;opacity:.8">Share this link with wife/kids - it auto-fills Family Code:</div>
-      <input value="${link}" readonly style="width:100%;padding:8px;border-radius:8px;border:0;color:#111" onclick="this.select();navigator.clipboard.writeText(this.value);this.nextElementSibling.innerText='Copied!'" />
-      <div style="font-size:11px;color:#4ade80">Tap to copy</div>
-      <div style="font-size:11px;opacity:.7">Family Code: <b>${cfg.code||cfg.familyCode||cfg.familyName}</b> | Password: you set</div>`;
-    }
-    // Auto-import from #invite=
-    if(location.hash.includes('invite=')){
-      try{
-        const b64 = location.hash.split('invite=')[1];
-        const json = JSON.parse(decodeURIComponent(escape(atob(b64))));
-        const newCfg = {familyName:json.n, name:json.n, members:json.m, code:json.c||json.n, familyCode:json.c||json.n};
-        localStorage.setItem('famline_family_v2', JSON.stringify(newCfg));
-        console.log('Imported family from invite', newCfg);
-        // clean hash
-        history.replaceState(null,'',location.pathname);
-        location.reload();
-      }catch(e){console.error('invite parse fail',e)}
-    }
-  },1500);
+    if(document.getElementById('famline-leave-btn')) return;
+    const header = document.querySelector('header') || document.querySelector('[class*="header"]') || document.body;
+    const btn = document.createElement('button');
+    btn.id='famline-leave-btn';
+    btn.textContent='↩ Leave / Switch Family';
+    btn.style.cssText='position:fixed;top:8px;right:12px;z-index:99999;background:#ef4444;color:white;border:0;padding:8px 12px;border-radius:20px;font-size:12px;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,.2)';
+    btn.onclick=()=>{
+      if(confirm('Leave current family (Haddad demo) and join Nehme?')){
+        localStorage.clear();
+        location.href=location.origin+location.pathname+'?reset=1';
+      }
+    };
+    // only show if we are in a family
+    try{
+      const f = localStorage.getItem('famline_family_v2')||localStorage.getItem('famline_family');
+      if(f) document.body.appendChild(btn);
+    }catch(e){}
+  },1000);
 })();
 </script>
 </body>
