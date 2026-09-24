@@ -51,28 +51,68 @@ wss.on('connection', ws=>{
           }
         }
       }
-      // NEW: Caller-name based call channels
-const callChannels=new Map();
-
-if(msg.type==='call-offer' || msg.type==='call-answer' || msg.type==='ice' || msg.type==='call-end'){
+      const callChannels=new Map();
+if(msg.type==='call-offer' || msg.type==='call-answer' || msg.type==='ice' || msg.type==='call-end' || msg.type==='call-declined'){
   const channel = msg.callChannel || msg.familyCode;
+  // FIX: Don't overwrite caller name! Keep original from
+  const callerName = msg.from || ws.userName || 'Family';
+  
   if(msg.type==='call-offer'){
     if(!callChannels.has(channel)) callChannels.set(channel, new Set());
     callChannels.get(channel).add(ws);
-    console.log(`Call channel: ${channel} by ${msg.from}`);
+    console.log(`Call channel ${channel} by ${callerName}`);
   }
-  if(callChannels.has(channel)){
-    callChannels.get(channel).forEach(c=>{
-      if(c!==ws) c.send(JSON.stringify({...msg,from:ws.id,fromName:ws.userName}));
+  if(msg.type==='call-answer' || msg.type==='ice'){
+    if(callChannels.has(channel)) callChannels.get(channel).add(ws);
+  }
+
+  // FIX: Always relay offer to whole family so Abdallah gets it even if not in call channel yet
+  // This fixes "Connecting P2P..." stuck
+  if(msg.type==='call-offer'){
+    const fam=families.get(ws.familyCode)||new Set();
+    fam.forEach(c=>{
+      if(c!==ws && c.readyState===1){
+        c.send(JSON.stringify({
+          type:msg.type,
+          familyCode:msg.familyCode,
+          callChannel:channel,
+          offer:msg.offer,
+          isVideo:msg.isVideo,
+          from:callerName,
+          fromName:callerName,
+          fromId:ws.id
+        }));
+      }
     });
-    if(msg.type==='call-offer'){
-      // Also notify whole family + push
+    // Push notifications
+    const subs=pushSubs.get(ws.familyCode)||[];
+    for(const sub of subs){
+      if(sub.user?.name!==callerName){
+        try{
+          await webpush.sendNotification(sub.subscription, JSON.stringify({
+            title:`Incoming ${msg.isVideo?'video':'voice'} call`,
+            body:`${callerName} calling Nehme - Tap to answer`,
+            tag:'famline-call', type:'call', isVideo:msg.isVideo, from:callerName, fromName:callerName, familyCode:ws.familyCode, callChannel:channel
+          }));
+        }catch(e){}
+      }
+    }
+  } else {
+    // For answer/ice/end, relay only to call channel (more stable)
+    if(callChannels.has(channel)){
+      callChannels.get(channel).forEach(c=>{
+        if(c!==ws && c.readyState===1){
+          c.send(JSON.stringify({...msg, from:callerName, fromName:callerName, fromId:ws.id}));
+        }
+      });
+    } else {
       const fam=families.get(ws.familyCode)||new Set();
-      fam.forEach(c=>{if(c!==ws && !callChannels.get(channel).has(c)) c.send(JSON.stringify({...msg,from:ws.id}));});
-      // push code here...
+      fam.forEach(c=>{if(c!==ws) c.send(JSON.stringify({...msg, from:callerName, fromName:callerName, fromId:ws.id}));});
     }
   }
-  if(msg.type==='call-end'){callChannels.delete(channel);}
+  if(msg.type==='call-end' || msg.type==='call-declined'){
+    if(callChannels.has(channel)) callChannels.delete(channel);
+  }
   return;
 }
       const fam=families.get(ws.familyCode)||new Set();
