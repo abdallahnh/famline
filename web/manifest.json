@@ -1,12 +1,11 @@
 {
-  "name": "FamLine - Family Chat",
+  "name": "FamLine - Nehme Family",
   "short_name": "FamLine",
-  "description": "Private E2E family chat with call notifications",
+  "description": "Fixed iOS version with sound and messages",
   "start_url": "/?app=1",
   "display": "standalone",
   "background_color": "#fdf6ec",
   "theme_color": "#111827",
-  "orientation": "portrait",
   "icons": [
     {
       "src": "icon-192.png",
