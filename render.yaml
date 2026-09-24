@@ -1,25 +1,8 @@
-
 services:
-  - type: web
-    name: famline-signaling
-    env: node
-    plan: free
-    region: frankfurt
-    rootDir: signaling
-    buildCommand: npm install
-    startCommand: npm start
-    healthCheckPath: /
-    envVars:
-      - key: NODE_VERSION
-        value: 20
-
   - type: web
     name: famline-web
     env: static
-    plan: free
-    region: frankfurt
-    rootDir: web
-    staticPublishPath: .
+    staticPublishPath: ./web
     routes:
       - type: rewrite
         source: /*

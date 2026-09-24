@@ -1,13 +1,1 @@
-{
-  "name": "famline-signaling",
-  "type": "module",
-  "dependencies": {
-    "ws": "^8.17.0"
-  },
-  "scripts": {
-    "start": "node server.js"
-  },
-  "engines": {
-    "node": ">=18"
-  }
-}
+{"name":"famline-signaling","type":"module","dependencies":{"ws":"^8.17.0"},"scripts":{"start":"node server.js"}}

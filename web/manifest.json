@@ -1,15 +1,24 @@
 {
-  "name": "FamLine - Secure Family",
+  "name": "FamLine - Family Chat",
   "short_name": "FamLine",
-  "start_url": "/",
+  "description": "Private E2E family chat with call notifications",
+  "start_url": "/?app=1",
   "display": "standalone",
-  "background_color": "#fff7ed",
-  "theme_color": "#f97316",
+  "background_color": "#fdf6ec",
+  "theme_color": "#111827",
+  "orientation": "portrait",
   "icons": [
     {
-      "src": "/icon.png",
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
