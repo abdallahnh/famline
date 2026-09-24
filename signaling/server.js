@@ -51,20 +51,30 @@ wss.on('connection', ws=>{
           }
         }
       }
-      if(msg.type==='call-offer'){
-        const subs=pushSubs.get(ws.familyCode)||[];
-        for(const sub of subs){
-          if(sub.user?.name!==msg.from){
-            try{
-              await webpush.sendNotification(sub.subscription, JSON.stringify({
-                title: `Incoming ${msg.isVideo?'video':'voice'} call`,
-                body: `${msg.from} calling Nehme - Tap to answer`,
-                tag:'famline-call', type:'call', isVideo:msg.isVideo, from:msg.from, familyCode:ws.familyCode
-              }));
-            }catch(e){if(e.statusCode===410){const idx=subs.indexOf(sub); if(idx>-1) subs.splice(idx,1);}}
-          }
-        }
-      }
+      // NEW: Caller-name based call channels
+const callChannels=new Map();
+
+if(msg.type==='call-offer' || msg.type==='call-answer' || msg.type==='ice' || msg.type==='call-end'){
+  const channel = msg.callChannel || msg.familyCode;
+  if(msg.type==='call-offer'){
+    if(!callChannels.has(channel)) callChannels.set(channel, new Set());
+    callChannels.get(channel).add(ws);
+    console.log(`Call channel: ${channel} by ${msg.from}`);
+  }
+  if(callChannels.has(channel)){
+    callChannels.get(channel).forEach(c=>{
+      if(c!==ws) c.send(JSON.stringify({...msg,from:ws.id,fromName:ws.userName}));
+    });
+    if(msg.type==='call-offer'){
+      // Also notify whole family + push
+      const fam=families.get(ws.familyCode)||new Set();
+      fam.forEach(c=>{if(c!==ws && !callChannels.get(channel).has(c)) c.send(JSON.stringify({...msg,from:ws.id}));});
+      // push code here...
+    }
+  }
+  if(msg.type==='call-end'){callChannels.delete(channel);}
+  return;
+}
       const fam=families.get(ws.familyCode)||new Set();
       fam.forEach(c=>{if(c!==ws) c.send(JSON.stringify({...msg,from:ws.id,fromName:ws.userName}));});
     }catch(e){console.error(e);}
