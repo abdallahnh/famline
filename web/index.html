@@ -58,6 +58,8 @@ async function startCall(isVideo){
  }catch(e){alert('Call failed: '+e.message);endCall()}
 }
 async function handleOffer(m){
+  const curName = (getCurrentUser()?.name||'').toLowerCase().trim();
+if((m.fromName||m.from||'').toLowerCase().trim() === curName) return;
  if(document.getElementById('callModal').classList.contains('show'))return;
  const callerName=m.fromName||m.from||'Family';const channel=m.callChannel||getCurrentCode();
  window._currentCallChannel=channel;
