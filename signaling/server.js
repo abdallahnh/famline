@@ -1,5 +1,5 @@
-const WebSocket = require('ws');
-const webpush = require('web-push');
+import WebSocket = require('ws');
+import webpush = require('web-push');
 
 const PORT = process.env.PORT || 10000;
 
