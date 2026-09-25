@@ -1,413 +1,125 @@
-<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#111827"><meta name="apple-mobile-web-app-capable" content="yes"><link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-192.png"><title>FamLine - Nehme Family</title><style>
-*{box-sizing:border-box}body{margin:0;font-family:-apple-system,system-ui;background:#fdf6ec;color:#111;height:100vh;overflow:hidden;-webkit-tap-highlight-color:transparent}
-#root{height:100vh;display:flex;flex-direction:column}
-.card{background:#fff;border-radius:20px;padding:18px;box-shadow:0 8px 30px rgba(0,0,0,.06);border:1px solid #eee;margin-bottom:14px}
-.btn{padding:11px 16px;border-radius:999px;border:0;font-weight:700;cursor:pointer;font-size:13px}
-.btn-black{background:#111;color:#fff}.btn-orange{background:#f97316;color:#fff}.btn-light{background:#fff;border:1px solid #ddd}
-.input{width:100%;padding:12px 14px;border-radius:12px;border:1px solid #ddd;background:#fafafa;font-size:16px;outline:none}
-.member-row{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:14px;border:1px solid #eee;background:#fff;margin-bottom:8px}
-.chat-layout{display:flex;height:100vh;position:relative}
-.sidebar{width:300px;background:#fff;border-right:1px solid #eee;display:flex;flex-direction:column;flex-shrink:0;z-index:20}
-.main{flex:1;display:flex;flex-direction:column;min-width:0}
-.msg{max-width:78%;padding:10px 14px;border-radius:18px;margin-bottom:8px;font-size:14px;line-height:1.4;word-break:break-word}
-.msg.me{background:#111;color:#fff;margin-left:auto;border-bottom-right-radius:6px}.msg.other{background:#fff;border:1px solid #e5e5e5;margin-right:auto;border-bottom-left-radius:6px}
-.topbar{padding:10px 12px;background:#fff;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;gap:8px;position:relative;z-index:5}
-.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:15}.overlay.show{display:block}
-@media(max-width:768px){
- .sidebar{position:fixed;left:0;top:0;bottom:0;z-index:25;transform:translateX(-100%);transition:transform.28s ease;width:84%;max-width:340px;box-shadow:0 10px 40px rgba(0,0,0,.25)}
- .sidebar.open{transform:translateX(0)}
- .msg{max-width:84%}
-}
-.status-dot{width:8px;height:8px;background:#22c55e;border-radius:50%;display:inline-block}
-#callModal{display:none;position:fixed;inset:0;background:#111;z-index:60;flex-direction:column;color:#fff}#callModal.show{display:flex}
-.video-grid{display:flex;flex:1;gap:8px;padding:12px;justify-content:center;align-items:center;flex-wrap:wrap}
-.video-grid video{width:45%;max-width:320px;height:220px;background:#222;border-radius:16px;object-fit:cover}
-audio#remoteAudio{position:absolute;left:-9999px;width:1px;height:1px}
-#installBanner{display:none;position:fixed;bottom:0;left:0;right:0;background:#111;color:#fff;padding:12px 16px;z-index:100;justify-content:space-between;align-items:center;gap:12px}#installBanner.show{display:flex}
-#notifBanner{display:none;position:fixed;top:0;left:0;right:0;background:#f59e0b;color:#fff;padding:10px 14px;z-index:90;justify-content:space-between;align-items:center}#notifBanner.show{display:flex}
-</style></head><body>
-<div id="root"></div>
-<div class="overlay" id="overlay" onclick="closeDrawer()"></div>
-<div id="notifBanner"><div><b>🔔 Enable Notifications</b><div style="font-size:11px">For calls when app closed - required for background</div></div><div style="display:flex;gap:8px"><button id="enableNotifBtn" style="background:#fff;color:#f59e0b;padding:6px 12px;border-radius:999px;border:0;font-weight:700">Enable</button><button onclick="this.parentElement.parentElement.classList.remove('show')" style="background:none;border:0;color:#fff;font-size:18px">✕</button></div></div>
-<div id="installBanner"><div><b>📲 Install FamLine App</b><div style="font-size:11px;opacity:.7">Get background call notifications</div></div><div style="display:flex;gap:8px"><button id="installBtn" style="background:#f97316;color:#fff;padding:8px 14px;border-radius:999px;border:0;font-weight:700">Install</button><button onclick="this.parentElement.parentElement.classList.remove('show')" style="background:none;border:0;color:#fff;font-size:18px">✕</button></div></div>
-<div id="callModal"><div style="padding:14px;display:flex;justify-content:space-between;align-items:center"><div><b id="callTitle">Calling...</b><div id="callStatus" style="font-size:12px;opacity:.7">Connecting via P2P</div></div><button onclick="endCall()" style="padding:8px 12px;border-radius:8px;border:0">✕</button></div><div class="video-grid"><video id="localVideo" autoplay muted playsinline webkit-playsinline></video><video id="remoteVideo" autoplay playsinline webkit-playsinline></video><audio id="remoteAudio" autoplay playsinline></audio></div><div style="padding:20px;text-align:center;display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><button onclick="endCall()" style="background:#ef4444;color:#fff;padding:14px 28px;border-radius:999px;border:0;font-weight:700">End Call</button><button id="muteBtn" onclick="toggleMute()" style="padding:12px 18px;border-radius:999px;border:0;background:#333;color:#fff">🎤 Mute</button><button id="camBtn" onclick="toggleCam()" style="padding:12px 18px;border-radius:999px;border:0;background:#333;color:#fff">📹 Cam</button><button id="speakerBtn" onclick="toggleSpeaker()" style="padding:12px 18px;border-radius:999px;border:0;background:#333;color:#fff">🔊 Speaker</button></div></div>
-<script>
-const VAPID_PUBLIC="BATeuCAksUg6_iGRtHVtooaaBiLKFhSk7alN2CKCNkZG3OCsR7A-d2brzOOCAU6xp7ucfyXAolTj2YueJUeIydQ"; 
+<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#111827"><title>FamLine FINAL - VAPID + No pc fixed</title><style>*{box-sizing:border-box}body{margin:0;font-family:-apple-system,system-ui;background:#fdf6ec;color:#111;height:100vh;overflow:hidden}#root{height:100vh;display:flex;flex-direction:column}.card{background:#fff;border-radius:20px;padding:18px;box-shadow:0 8px 30px rgba(0,0,0,.06);border:1px solid #eee;margin-bottom:14px}.btn{padding:11px 16px;border-radius:999px;border:0;font-weight:700;cursor:pointer;font-size:13px}.btn-black{background:#111;color:#fff}.btn-light{background:#fff;border:1px solid #ddd}.input{width:100%;padding:12px 14px;border-radius:12px;border:1px solid #ddd;background:#fafafa;font-size:16px;outline:none}.member-row{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:14px;border:1px solid #eee;background:#fff;margin-bottom:8px}.chat-layout{display:flex;height:100vh}.sidebar{width:300px;background:#fff;border-right:1px solid #eee;display:flex;flex-direction:column;flex-shrink:0;z-index:20}.main{flex:1;display:flex;flex-direction:column;min-width:0}.msg{max-width:78%;padding:10px 14px;border-radius:18px;margin-bottom:8px;font-size:14px;line-height:1.4;word-break:break-word}.msg.me{background:#111;color:#fff;margin-left:auto;border-bottom-right-radius:6px}.msg.other{background:#fff;border:1px solid #e5e5e5;margin-right:auto;border-bottom-left-radius:6px}.topbar{padding:10px 12px;background:#fff;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;gap:8px}.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:15}.overlay.show{display:block}@media(max-width:768px){.sidebar{position:fixed;left:0;top:0;bottom:0;z-index:25;transform:translateX(-100%);transition:transform.28s ease;width:84%;max-width:340px}.sidebar.open{transform:translateX(0)}.msg{max-width:84%}}.status-dot{width:8px;height:8px;background:#22c55e;border-radius:50%;display:inline-block}#callModal{display:none;position:fixed;inset:0;background:#111;z-index:60;flex-direction:column;color:#fff}#callModal.show{display:flex}.video-grid{display:flex;flex:1;gap:8px;padding:12px;justify-content:center;align-items:center;flex-wrap:wrap}.video-grid video{width:45%;max-width:320px;height:220px;background:#222;border-radius:16px;object-fit:cover}audio#remoteAudio{position:absolute;left:-9999px;width:1px;height:1px}</style></head><body><div id="root"></div><div class="overlay" id="overlay" onclick="closeDrawer()"></div><div id="callModal"><div style="padding:14px;display:flex;justify-content:space-between;align-items:center"><div><b id="callTitle">Calling...</b><div id="callStatus" style="font-size:12px;opacity:.7">Connecting...</div></div><button onclick="endCall()" style="padding:8px 12px;border-radius:8px;border:0">✕</button></div><div class="video-grid"><video id="localVideo" autoplay muted playsinline></video><video id="remoteVideo" autoplay playsinline></video><audio id="remoteAudio" autoplay playsinline></audio></div><div style="padding:20px;text-align:center;display:flex;gap:10px;justify-content:center"><button onclick="endCall()" style="background:#ef4444;color:#fff;padding:14px 28px;border-radius:999px;border:0;font-weight:700">End Call</button><button id="muteBtn" onclick="toggleMute()" style="padding:12px 18px;border-radius:999px;border:0;background:#333;color:#fff">🎤 Mute</button><button id="camBtn" onclick="toggleCam()" style="padding:12px 18px;border-radius:999px;border:0;background:#333;color:#fff">📹 Cam</button></div></div><script>
+const VAPID_PUBLIC='[STRIPPED 87 bytes]';
+function urlBase64ToUint8Array(b){const p='='.repeat((4-b.length%4)%4);const base64=(b+p).replace(/-/g,'+').replace(/_/g,'/');const raw=atob(base64);const out=new Uint8Array(raw.length);for(let i=0;i<raw.length;++i)out[i]=raw.charCodeAt(i);return out;}
 const LS_FAMS='famline_families',LS_CUR_CODE='famline_current_code',LS_CUR_USER='famline_current_user';
-function getFamilies(){try{return JSON.parse(localStorage.getItem(LS_FAMS)||'{}')}catch{return {}}}
+function getFamilies(){try{return JSON.parse(localStorage.getItem(LS_FAMS)||'{}')}catch{return{}}}
 function saveFamilies(f){localStorage.setItem(LS_FAMS,JSON.stringify(f))}
 function getCurrentCode(){return localStorage.getItem(LS_CUR_CODE)}
 function setCurrentCode(c){localStorage.setItem(LS_CUR_CODE,c)}
 function getCurrentUser(){try{return JSON.parse(localStorage.getItem(LS_CUR_USER)||'null')}catch{return null}}
 function setCurrentUser(u){localStorage.setItem(LS_CUR_USER,JSON.stringify(u))}
-function genCode(){const s='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let a='';for(let i=0;i<4;i++)a+=s[Math.floor(Math.random()*s.length)];let b='';for(let i=0;i<4;i++)b+=s[Math.floor(Math.random()*s.length)];return `FAM-${a}-${b}`}
-let view='landing',joinPrefillCode='';
-let createMembers=[{name:'Abdallah',role:'Father',emoji:'👨'},{name:'Nado',role:'Mother',emoji:'👩'},{name:'Talia',role:'Daughter',emoji:'👧'},{name:'Mohamad',role:'Son',emoji:'👦'},{name:'Perla',role:'Daughter',emoji:'👧'}];
-let ws=null,pc=null,localStream=null,isMuted=false,camOff=false,deferredPrompt=null,pushSub=null;
-function openDrawer(){document.getElementById('sidebar')?.classList.add('open');document.getElementById('overlay')?.classList.add('show');}
-function closeDrawer(){document.getElementById('sidebar')?.classList.remove('open');document.getElementById('overlay')?.classList.remove('show');}
-window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;document.getElementById('installBanner').classList.add('show');});
-document.getElementById('installBtn')?.addEventListener('click',async()=>{if(deferredPrompt){deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;document.getElementById('installBanner').classList.remove('show');}});
-document.getElementById('enableNotifBtn')?.addEventListener('click',async()=>{const p=await Notification.requestPermission();if(p==='granted'){document.getElementById('notifBanner').classList.remove('show');initPWA();}});
-async function initPWA(){
- if(!('serviceWorker' in navigator)) return;
- try{
-  const reg=await navigator.serviceWorker.register('/sw.js');
-  console.log('SW registered');
-  if(Notification.permission==='default'){document.getElementById('notifBanner').classList.add('show');}
-  else if(Notification.permission==='granted'){
-    document.getElementById('notifBanner').classList.remove('show');
-    try{
-      let sub=await reg.pushManager.getSubscription();
-      if(!sub){sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(VAPID_PUBLIC)});}
-      pushSub=sub; window._pushSub=sub;
-      console.log('Push subscribed');
-      if(ws&&ws.readyState===1&&getCurrentCode()){
-        ws.send(JSON.stringify({type:'push-subscribe',familyCode:getCurrentCode(),subscription:sub,user:getCurrentUser()}));
-      }
-    }catch(e){console.error('Push failed',e);}
-  }
- }catch(e){console.error('SW fail',e);}
-}
-function urlBase64ToUint8Array(b64){const p='='.repeat((4-b64.length%4)%4);const base=(b64+p).replace(/-/g,'+').replace(/_/g,'/');const raw=atob(base);const out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);return out;}
+function genCode(){const s='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let a='';for(let i=0;i<4;i++)a+=s[Math.floor(Math.random()*s.length)];let b='';for(let i=0;i<4;i++)b+=s[Math.floor(Math.random()*s.length)];return`FAM-${a}-${b}`}
+let view='landing',createMembers=[{name:'Abdallah',role:'Father',emoji:'👨'},{name:'Nado',role:'Mother',emoji:'👩'},{name:'Talia',role:'Daughter',emoji:'👧'},{name:'Mohamad',role:'Son',emoji:'👦'},{name:'Perla',role:'Daughter',emoji:'👧'}];
+let ws=null,pc=null,localStream=null,isMuted=false,camOff=false;
+function openDrawer(){document.getElementById('sidebar')?.classList.add('open');document.getElementById('overlay')?.classList.add('show')}
+function closeDrawer(){document.getElementById('sidebar')?.classList.remove('open');document.getElementById('overlay')?.classList.remove('show')}
+async function subscribePush(){if(!('serviceWorker' in navigator)||!('PushManager' in window))return;try{const reg=await navigator.serviceWorker.register('./sw.js');const perm=await Notification.requestPermission();if(perm!=='granted')return;const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(VAPID_PUBLIC)});if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'push-subscribe',familyCode:getCurrentCode(),subscription:sub,name:getCurrentUser()?.name}))}catch(e){}}
 async function createPC(isVideo){
-  // Kill any old PC first - wait for it to fully close
-  if(pc){
-    try{
-      const oldPc = pc;
-      pc=null; // Set null immediately so no other code uses closing pc
-      oldPc.ontrack=null;
-      oldPc.onicecandidate=null;
-      oldPc.onconnectionstatechange=null;
-      oldPc.oniceconnectionstatechange=null;
-      try{oldPc.close();}catch{}
-      console.log('Old PC closed');
-    }catch(e){}
-    await new Promise(r=>setTimeout(r, 200));
+ if(window._creatingPC){await new Promise(r=>setTimeout(r,300));if(pc)return pc;}
+ window._creatingPC=true;
+ try{
+  if(pc){try{const old=pc;pc=null;old.ontrack=null;old.onicecandidate=null;old.onconnectionstatechange=null;old.oniceconnectionstatechange=null;old.close()}catch{}await new Promise(r=>setTimeout(r,200))}
+  if(localStream){const live=localStream.getTracks().filter(t=>t.readyState==='live');if(live.length===0)localStream=null}
+  let myPc=null,attempts=0;
+  while(attempts<2&&!myPc){
+   try{myPc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},{urls:'turn:openrelay.metered.ca:443',username:'openrelayproject',credential:'openrelayproject'}],iceCandidatePoolSize:10})}catch(e){attempts++;await new Promise(r=>setTimeout(r,300));if(attempts>=2)throw new Error('No PC - RTCPeerConnection failed')}
   }
-
-  // Clean dead stream
-  if(localStream){
-    try{
-      localStream.getTracks().forEach(t=>{
-        try{if(t.readyState!=='live' ||!t.enabled) t.stop();}catch{}
-      });
-      const hasLive = localStream.getTracks().some(t=>t.readyState==='live');
-      if(!hasLive) localStream=null;
-    }catch{localStream=null;}
+  if(!myPc)throw new Error('No PC - failed to create');
+  myPc._q=[];myPc._remoteSet=false;
+  myPc.onicecandidate=e=>{if(e.candidate&&ws&&ws.readyState===1){const ch=window._currentCallChannel||getCurrentCode();ws.send(JSON.stringify({type:'ice',familyCode:getCurrentCode(),callChannel:ch,candidate:e.candidate}))}};
+  myPc.oniceconnectionstatechange=()=>{if(myPc&&myPc.iceConnectionState==='failed')try{myPc.restartIce()}catch{}};
+  myPc.ontrack=e=>{if(e.track.kind==='video'){const rv=document.getElementById('remoteVideo');if(rv){rv.srcObject=e.streams[0];rv.play().catch(()=>{})}}if(e.track.kind==='audio'){const audio=document.getElementById('remoteAudio');if(audio){audio.srcObject=e.streams[0];audio.play().catch(()=>{})}}const st=document.getElementById('callStatus');if(st)st.textContent='Connected ✅'};
+  myPc.onconnectionstatechange=()=>{const st=document.getElementById('callStatus');if(st&&myPc)st.textContent='Call: '+myPc.connectionState};
+  if(!localStream||localStream.getTracks().filter(t=>t.readyState==='live').length===0){
+   try{localStream=await navigator.mediaDevices.getUserMedia(isVideo?{video:{facingMode:'user'},audio:{echoCancellation:true,noiseSuppression:true}}:{audio:{echoCancellation:true,noiseSuppression:true}})}catch{localStream=await navigator.mediaDevices.getUserMedia({audio:true})}
   }
-
-  // Create new PC - retry once if fails
-  let attempts=0;
-  while(attempts<2){
-    try{
-      pc=new RTCPeerConnection({
-        iceServers:[
-          {urls:'stun:stun.l.google.com:19302'},
-          {urls:'stun:stun1.l.google.com:19302'},
-          {urls:'stun:stun2.l.google.com:19302'},
-          {urls:'stun:stun3.l.google.com:19302'},
-          {urls:'turn:openrelay.metered.ca:80', username:'openrelayproject', credential:'openrelayproject'},
-          {urls:'turn:openrelay.metered.ca:443', username:'openrelayproject', credential:'openrelayproject'},
-          {urls:'turn:openrelay.metered.ca:443?transport=tcp', username:'openrelayproject', credential:'openrelayproject'}
-        ],
-        iceCandidatePoolSize:10,
-        bundlePolicy:'max-bundle',
-        rtcpMuxPolicy:'require'
-      });
-      break; // Success
-    }catch(e){
-      attempts++;
-      console.error('PC create failed attempt', attempts, e);
-      pc=null;
-      await new Promise(r=>setTimeout(r, 300));
-      if(attempts>=2) throw new Error('No PC - RTCPeerConnection failed: '+e.message);
-    }
-  }
-
-  if(!pc) throw new Error('No PC - failed to create after 2 tries');
-
-  pc._q=[]; pc._remoteSet=false;
-  pc.onicecandidate=e=>{
-    if(e.candidate&&ws&&ws.readyState===1){
-      const ch=window._currentCallChannel||getCurrentCode();
-      ws.send(JSON.stringify({type:'ice',familyCode:getCurrentCode(),callChannel:ch,candidate:e.candidate}))
-    }
-  };
-  pc.oniceconnectionstatechange=()=>{if(pc&&pc.iceConnectionState==='failed'){try{pc.restartIce()}catch{}}};
-  pc.ontrack=e=>{
-    if(!pc) return;
-    if(e.track.kind==='video'){
-      const rv=document.getElementById('remoteVideo');
-      if(rv){rv.srcObject=e.streams[0]; rv.play().catch(()=>{});}
-    }
-    if(e.track.kind==='audio'){
-      const audio=document.getElementById('remoteAudio');
-      if(audio&&audio.srcObject!==e.streams[0]){
-        audio.srcObject=e.streams[0];
-        audio.play().catch(()=>{
-          const st=document.getElementById('callStatus');
-          if(st){st.textContent='Tap to enable sound 🔊'; st.onclick=()=>{audio.play(); document.getElementById('remoteVideo')?.play();};}
-        });
-      }
-    }
-    const st=document.getElementById('callStatus');
-    if(st) st.textContent='Connected ✅';
-  };
-  pc.onconnectionstatechange=()=>{
-    if(!pc) return;
-    const st=document.getElementById('callStatus');
-    if(st) st.textContent='Call: '+pc.connectionState;
-    if(pc.connectionState==='failed'||pc.connectionState==='disconnected'){
-      setTimeout(()=>{try{if(pc) pc.restartIce()}catch{}},1000);
-    }
-  };
-
-  // Get media - always fresh after cancel
-  if(!localStream || localStream.getTracks().filter(t=>t.readyState==='live').length===0){
-    try{
-      const constraints=isVideo
-       ?{video:{facingMode:'user',width:{ideal:640},height:{ideal:480}}, audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}
-        :{audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}};
-      localStream=await navigator.mediaDevices.getUserMedia(constraints);
-    }catch(err){
-      console.log('Video failed, trying audio', err);
-      try{localStream=await navigator.mediaDevices.getUserMedia({audio:true});}
-      catch(err2){throw new Error('Mic needed: '+err2.message);}
-    }
-  }
-
-  if(!localStream) throw new Error('No stream');
-  if(!pc) throw new Error('No PC after media');
-
-  localStream.getTracks().forEach(track=>{
-    if(track && pc && pc.signalingState!=='closed' && track.readyState==='live'){
-      try{pc.addTrack(track, localStream);}catch(e){console.error('addTrack',e);}
-    }
-  });
-
-  const lv=document.getElementById('localVideo');
-  if(lv){lv.srcObject=localStream; lv.muted=true; lv.playsInline=true; lv.play().catch(()=>{}); lv.style.display='block';}
-  const rv=document.getElementById('remoteVideo');
-  if(rv) rv.style.display='block';
-
-  console.log('PC created OK, ready for call, channel', window._currentCallChannel);
+  if(!localStream)throw new Error('No stream');
+  if(!myPc)throw new Error('No PC after media');
+  localStream.getTracks().forEach(track=>{if(track.readyState==='live'&&myPc.signalingState!=='closed')try{myPc.addTrack(track,localStream)}catch{}});
+  pc=myPc;
+  const lv=document.getElementById('localVideo');if(lv){lv.srcObject=localStream;lv.muted=true;lv.playsInline=true;lv.play().catch(()=>{})}
   return pc;
+ }finally{window._creatingPC=false}
 }
 async function startCall(isVideo){
-  const callerName=getCurrentUser()?.name||'unknown';
-  window._currentCallChannel=getCurrentCode()+'_call_'+callerName+'_'+Date.now();
-  console.log('Starting call on caller channel', window._currentCallChannel);
-  document.getElementById('callModal').classList.add('show');
-document.getElementById('callTitle').textContent=isVideo?'Video Call':'Voice Call';
-document.getElementById('callStatus').textContent='Calling...';
-  try{
-    await createPC(isVideo);
-    const offer=await pc.createOffer({offerToReceiveAudio:true, offerToReceiveVideo:isVideo});
-    await pc.setLocalDescription(offer);
-    document.getElementById('callStatus').textContent='Calling... waiting for answer';
-    if(ws&&ws.readyState===1){
-      ws.send(JSON.stringify({type:'call-offer',familyCode:getCurrentCode(),callChannel:window._currentCallChannel,offer:offer,isVideo:isVideo,from:callerName}));
-    }
-  }catch(e){alert('Call failed: '+e.message); endCall();}
+ const callerName=getCurrentUser()?.name||'unknown';
+ window._currentCallChannel=getCurrentCode()+'_call_'+callerName+'_'+Date.now();
+ document.getElementById('callModal').classList.add('show');
+ document.getElementById('callTitle').textContent=isVideo?'Video Call':'Voice Call';
+ document.getElementById('callStatus').textContent='Calling...';
+ try{
+  await createPC(isVideo);
+  const offer=await pc.createOffer({offerToReceiveAudio:true,offerToReceiveVideo:isVideo});
+  await pc.setLocalDescription(offer);
+  document.getElementById('callStatus').textContent='Calling... waiting';
+  if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'call-offer',familyCode:getCurrentCode(),callChannel:window._currentCallChannel,offer:offer,isVideo:isVideo,from:callerName,fromName:callerName}));
+ }catch(e){alert('Call failed: '+e.message);endCall()}
 }
 async function handleOffer(m){
-  if(document.getElementById('callModal').classList.contains('show')) return;
-  // Use real caller name, not random ID
-  const callerName = m.fromName || m.from || 'Family';
-  const channel = m.callChannel || getCurrentCode();
-  window._currentCallChannel = channel;
-  console.log('Incoming call from', callerName, 'on', channel);
-  sessionStorage.setItem('pendingCall', JSON.stringify(m));
-    if(!confirm(`${callerName} calling ${m.isVideo?'video':'voice'} call. Answer?`)){
-    if(ws) ws.send(JSON.stringify({type:'call-declined',familyCode:getCurrentCode(),callChannel:channel}));
-    // FIX: Clean up even on decline, so next call works
-    window._currentCallChannel=null;
-    sessionStorage.removeItem('pendingCall');
-    // Make sure pc is null after decline
-    if(pc){
-      try{pc.close();}catch{}
-      pc=null;
-    }
-    return;
-  }
-  document.getElementById('callModal').classList.add('show');
-  document.getElementById('callTitle').textContent=`${callerName} is calling...`;
-  document.getElementById('callStatus').textContent='Answering...';
-  try{
-    await createPC(m.isVideo);
-    await pc.setRemoteDescription(new RTCSessionDescription(m.offer));
-    pc._remoteSet=true;
-    if(pc._q.length){for(const c of pc._q){try{await pc.addIceCandidate(new RTCIceCandidate(c))}catch{}} pc._q=[];}
-    const ans=await pc.createAnswer();
-    await pc.setLocalDescription(ans);
-    if(ws) ws.send(JSON.stringify({type:'call-answer',familyCode:getCurrentCode(),callChannel:channel,answer:ans,from:getCurrentUser()?.name,fromName:getCurrentUser()?.name}));
-    document.getElementById('callStatus').textContent='Connecting...';
-    sessionStorage.removeItem('pendingCall');
-  }catch(e){console.error(e); alert('Answer failed: '+e.message); endCall(); sessionStorage.removeItem('pendingCall');}
+ if(document.getElementById('callModal').classList.contains('show'))return;
+ const callerName=m.fromName||m.from||'Family';const channel=m.callChannel||getCurrentCode();
+ window._currentCallChannel=channel;
+ if(document.hidden&&Notification.permission==='granted')new Notification(callerName+' calling...',{body:(m.isVideo?'Video':'Voice')+' call'});
+ if(!confirm(`${callerName} calling ${m.isVideo?'video':'voice'} call. Answer?`)){if(ws)ws.send(JSON.stringify({type:'call-declined',familyCode:getCurrentCode(),callChannel:channel}));window._currentCallChannel=null;if(pc)try{pc.close()}catch{};pc=null;return}
+ document.getElementById('callModal').classList.add('show');document.getElementById('callTitle').textContent=`${callerName} is calling...`;document.getElementById('callStatus').textContent='Answering...';
+ try{
+  await createPC(m.isVideo);await pc.setRemoteDescription(new RTCSessionDescription(m.offer));pc._remoteSet=true;
+  if(pc._q.length){for(const c of pc._q)try{await pc.addIceCandidate(new RTCIceCandidate(c))}catch{}pc._q=[]}
+  const ans=await pc.createAnswer();await pc.setLocalDescription(ans);
+  if(ws)ws.send(JSON.stringify({type:'call-answer',familyCode:getCurrentCode(),callChannel:channel,answer:ans,from:getCurrentUser()?.name,fromName:getCurrentUser()?.name}));
+ }catch(e){alert('Answer failed: '+e.message);endCall()}
 }
 function endCall(){
-  console.log('Ending call - full cleanup for 2nd call');
-
-  const ch=window._currentCallChannel;
-  // Send end BEFORE nulling channel
-  if(ws&&ws.readyState===1&&getCurrentCode()){
-    try{
-      ws.send(JSON.stringify({type:'call-end',familyCode:getCurrentCode(),callChannel:ch||getCurrentCode()+'_call_'+(getCurrentUser()?.name||'unknown')}));
-    }catch{}
-  }
-  window._currentCallChannel=null;
-
-  document.getElementById('callModal')?.classList.remove('show');
-
-  // Close PC first
-  if(pc){
-    const oldPc=pc;
-    pc=null; // Null immediately so no race
-    try{
-      oldPc.ontrack=null; oldPc.onicecandidate=null;
-      oldPc.onconnectionstatechange=null; oldPc.oniceconnectionstatechange=null;
-      oldPc.close();
-    }catch(e){}
-    console.log('PC nulled');
-  }
-
-  // Stop tracks to hide mic island (your screenshot)
-  if(localStream){
-    try{
-      localStream.getTracks().forEach(t=>{try{t.stop()}catch{}});
-    }catch{}
-    localStream=null;
-    console.log('Stream stopped, mic island will hide');
-  }
-
-  try{
-    const lv=document.getElementById('localVideo');
-    const rv=document.getElementById('remoteVideo');
-    const ra=document.getElementById('remoteAudio');
-    if(lv) lv.srcObject=null;
-    if(rv) rv.srcObject=null;
-    if(ra) ra.srcObject=null;
-  }catch{}
-
-  sessionStorage.removeItem('pendingCall');
-  // Clear any queued ICE
-  if(pc&&pc._q) pc._q=[];
-
-  console.log('Call fully ended - ready for next call');
+ const ch=window._currentCallChannel;
+ if(ws&&ws.readyState===1&&getCurrentCode())try{ws.send(JSON.stringify({type:'call-end',familyCode:getCurrentCode(),callChannel:ch||''}))}catch{}
+ window._currentCallChannel=null;document.getElementById('callModal')?.classList.remove('show');window._creatingPC=false;
+ if(pc){const old=pc;pc=null;try{old.ontrack=null;old.onicecandidate=null;old.onconnectionstatechange=null;old.oniceconnectionstatechange=null;old.close()}catch{}}
+ if(localStream){try{localStream.getTracks().forEach(t=>{try{t.enabled=false}catch{}});localStream.getVideoTracks().forEach(t=>{try{t.stop()}catch{}});setTimeout(()=>{if(localStream)try{localStream.getAudioTracks().forEach(t=>{try{t.stop()}catch{}})}catch{};localStream=null},800)}catch{}}
+ try{const lv=document.getElementById('localVideo');const rv=document.getElementById('remoteVideo');const ra=document.getElementById('remoteAudio');if(lv)lv.srcObject=null;if(rv)rv.srcObject=null;if(ra)ra.srcObject=null}catch{}
 }
-function toggleMute(){if(!localStream) return; isMuted=!isMuted; localStream.getAudioTracks().forEach(t=>t.enabled=!isMuted); document.getElementById('muteBtn').textContent=isMuted?'🔇 Unmute':'🎤 Mute';}
-function toggleCam(){if(!localStream) return; const v=localStream.getVideoTracks(); if(!v.length) return; camOff=!camOff; v.forEach(t=>t.enabled=!camOff); document.getElementById('camBtn').textContent=camOff?'📹 Cam On':'📹 Cam Off';}
-function toggleSpeaker(){const audio=document.getElementById('remoteAudio'); if(audio.setSinkId) audio.setSinkId(audio.sinkId?'':'').catch(()=>{});}
+function toggleMute(){if(!localStream)return;isMuted=!isMuted;localStream.getAudioTracks().forEach(t=>t.enabled=!isMuted);document.getElementById('muteBtn').textContent=isMuted?'🔇 Unmute':'🎤 Mute'}
+function toggleCam(){if(!localStream)return;const v=localStream.getVideoTracks();if(!v.length)return;camOff=!camOff;v.forEach(t=>t.enabled=!camOff)}
 function connectSignaling(){
- if(ws&&ws.readyState===1) return;
+ if(ws&&ws.readyState===1)return;
  ws=new WebSocket('wss://famline-signaling.onrender.com');
- ws.onopen=()=>{
-  const c=getCurrentCode(),u=getCurrentUser();
-  if(c&&u){
-    ws.send(JSON.stringify({type:'join',familyCode:c,name:u.name}));
-    if(window._pushSub) ws.send(JSON.stringify({type:'push-subscribe',familyCode:c,subscription:window._pushSub,user:u}));
-  }
-  updateStatus(true);
-  clearInterval(ws._hb);
-  ws._hb=setInterval(()=>{if(ws.readyState===1) ws.send(JSON.stringify({type:'ping'}))},25000);
- };
- ws.onclose=()=>{clearInterval(ws._hb); updateStatus(false); setTimeout(connectSignaling,2000);};
+ ws.onopen=()=>{const c=getCurrentCode(),u=getCurrentUser();if(c&&u)ws.send(JSON.stringify({type:'join',familyCode:c,name:u.name}));updateStatus(true);clearInterval(ws._hb);ws._hb=setInterval(()=>{if(ws.readyState===1)ws.send(JSON.stringify({type:'ping'}))},25000);if(c)subscribePush()};
+ ws.onclose=()=>{clearInterval(ws._hb);updateStatus(false);setTimeout(connectSignaling,2000)};
  ws.onerror=()=>updateStatus(false);
  ws.onmessage=async(ev)=>{
-  try{
-   const m=JSON.parse(ev.data);
-   if(m.type==='chat'){
-    const key='famline_msgs_'+(getCurrentCode()||'default');
-    const msgs=JSON.parse(localStorage.getItem(key)||'[]');
-    if(!msgs.find(x=>x.ts===m.ts&&x.sender===m.sender)){
-      msgs.push(m); localStorage.setItem(key,JSON.stringify(msgs));
-      if(view==='chat') appendMsg(m);
-      else if(Notification.permission==='granted'&&document.hidden){
-        navigator.serviceWorker.ready.then(r=>r.showNotification(m.sender,{body:m.text,icon:'/icon-192.png',tag:'famline-msg'}));
-      }
-    }
-   }else if(m.type==='history'&&m.messages){
-    const key='famline_msgs_'+getCurrentCode();
-    const ex=JSON.parse(localStorage.getItem(key)||'[]');
-    const backupKey='famline_backup_'+getCurrentCode();
-    const backup=JSON.parse(localStorage.getItem(backupKey)||'[]');
-    const all=[...ex,...backup,...m.messages];
-    const seen=new Set(); const merged=[];
-    all.forEach(msg=>{const id=msg.ts+'_'+msg.sender; if(!seen.has(id)){seen.add(id); merged.push(msg);}});
-    merged.sort((a,b)=>a.ts-b.ts);
-    localStorage.setItem(key,JSON.stringify(merged));
-    localStorage.setItem(backupKey,JSON.stringify(merged.slice(-500)));
-    if(view==='chat'){document.getElementById('msg-list').innerHTML=''; merged.forEach(appendMsg); setTimeout(()=>{const c=document.getElementById('messages'); if(c) c.scrollTop=c.scrollHeight;},100);}
-   }else if(m.type==='call-offer'){handleOffer(m);}
-   else if(m.type==='call-answer'){
-  if(!pc){
-    console.log('Answer received but no pc, creating for 2nd call');
-    try{await createPC(m.isVideo||false);}catch(e){return;}
-  }
-  if(pc){
-    await pc.setRemoteDescription(new RTCSessionDescription(m.answer));
-    pc._remoteSet=true;
-    if(pc._q.length){for(const c of pc._q){try{await pc.addIceCandidate(new RTCIceCandidate(c))}catch{}} pc._q=[];}
-    document.getElementById('callStatus').textContent='Connected ✅ on '+(m.callChannel||'channel');
-  }
-}
-else if(m.type==='ice'){
-  if(!pc){console.log('ICE but no pc, ignoring');}
-  else{
-    try{if(pc._remoteSet) await pc.addIceCandidate(new RTCIceCandidate(m.candidate)); else pc._q.push(m.candidate);}catch(e){}
-  }
-}
-   else if(m.type==='ice'){if(pc){try{if(pc._remoteSet) await pc.addIceCandidate(new RTCIceCandidate(m.candidate)); else pc._q.push(m.candidate);}catch(e){console.error('ICE',e);}}}
-   else if(m.type==='call-end'||m.type==='call-declined'){endCall();}
-  }catch(e){console.error(e);}
+  try{const m=JSON.parse(ev.data);
+   if(m.type==='chat'){const key='famline_msgs_'+(getCurrentCode()||'default');const msgs=JSON.parse(localStorage.getItem(key)||'[]');if(!msgs.find(x=>x.ts===m.ts&&x.sender===m.sender)){msgs.push(m);localStorage.setItem(key,JSON.stringify(msgs));if(view==='chat')appendMsg(m)}}
+   else if(m.type==='call-offer')handleOffer(m);
+   else if(m.type==='call-answer'){if(!pc)await createPC(false);if(pc){await pc.setRemoteDescription(new RTCSessionDescription(m.answer));pc._remoteSet=true;if(pc._q.length){for(const c of pc._q)try{await pc.addIceCandidate(new RTCIceCandidate(c))}catch{}pc._q=[]}}}
+   else if(m.type==='ice'){if(pc)try{if(pc._remoteSet)await pc.addIceCandidate(new RTCIceCandidate(m.candidate));else pc._q.push(m.candidate)}catch{}}
+   else if(m.type==='call-end'||m.type==='call-declined')endCall();
+  }catch{}
  };
 }
-function updateStatus(online){const el=document.getElementById('conn-status'); if(el) el.innerHTML=online?'<span class="status-dot"></span> Live • BG fixed':'● Connecting...';}
-function appendMsg(m){const list=document.getElementById('msg-list'); if(!list) return; const cur=getCurrentUser(); const isMe=cur&&m.sender===cur.name; const div=document.createElement('div'); div.className='msg '+(isMe?'me':'other'); div.innerHTML=`<b style="font-size:11px;display:block;opacity:.6">${m.sender} • ${m.role}</b>${(m.text||'').replace(/</g,'&lt;')}<br><span style="font-size:10px;opacity:.5">${new Date(m.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>`; list.appendChild(div); const c=document.getElementById('messages'); if(c) c.scrollTop=c.scrollHeight;}
+function updateStatus(o){const el=document.getElementById('conn-status');if(el)el.innerHTML=o?'<span class="status-dot"></span> Live • VAPID ✅':'● Connecting'}
+function appendMsg(m){const list=document.getElementById('msg-list');if(!list)return;const cur=getCurrentUser();const isMe=cur&&m.sender===cur.name;const div=document.createElement('div');div.className='msg '+(isMe?'me':'other');div.innerHTML=`<b style="font-size:11px;display:block;opacity:.6">${m.sender}</b>${(m.text||'').replace(/</g,'&lt;')}<br><span style="font-size:10px;opacity:.5">${new Date(m.ts).toLocaleTimeString()}</span>`;list.appendChild(div);const c=document.getElementById('messages');if(c)c.scrollTop=c.scrollHeight}
 function render(){
- const root=document.getElementById('root'); const families=getFamilies(); const curCode=getCurrentCode(); const curFam=curCode?families[curCode]:null; const curUser=getCurrentUser();
+ const root=document.getElementById('root');const families=getFamilies();const curCode=getCurrentCode();const curFam=curCode?families[curCode]:null;
  if(view==='chat'&&curFam){
-  root.innerHTML=`<div class="chat-layout"><div class="sidebar" id="sidebar"><div style="padding:14px 16px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center"><div><b>${curFam.familyName}</b><div style="font-size:11px" id="conn-status"><span class="status-dot"></span> Connecting...</div><div style="font-size:11px;opacity:.6">You: ${curUser?curUser.name:'?'} • ${curFam.code}</div></div><button class="btn btn-light" style="padding:6px 10px" onclick="closeDrawer()">✕</button></div><div style="flex:1;overflow:auto;padding:12px">${curFam.members.map(m=>`<div class="member-row"><span style="font-size:20px">${m.emoji}</span><div style="flex:1"><div style="font-weight:700;font-size:13px">${m.name} ${curUser&&curUser.name===m.name?'(You)':''}</div><div style="font-size:11px;opacity:.6">${m.role}</div></div><span class="status-dot"></span></div>`).join('')}<div style="margin-top:12px;padding:10px;background:#fff7ed;border:1px dashed #fed7aa;border-radius:12px;font-size:11px"><b>Invite link</b><br><input class="input" style="font-size:10px;padding:8px;margin-top:6px" value="${location.origin+location.pathname+'#invite='+btoa(unescape(encodeURIComponent(JSON.stringify({n:curFam.familyName,m:curFam.members,c:curFam.code}))))}" readonly onclick="this.select();navigator.clipboard.writeText(this.value);alert('Copied!')"></div></div><div style="padding:12px;border-top:1px solid #eee;display:flex;gap:8px"><button class="btn btn-light" style="flex:1;font-size:12px" onclick="view='landing';render()">↩ Switch</button><button class="btn" style="flex:1;font-size:12px;background:#fee2e2;color:#ef4444" onclick="if(confirm('Leave?')){const f=getFamilies();delete f['${curCode}'];saveFamilies(f);localStorage.removeItem(LS_CUR_CODE);view='landing';render()}">Leave</button></div></div><div class="main"><div class="topbar"><div style="display:flex;gap:8px;align-items:center;min-width:0"><button class="btn btn-light" id="menuBtn" style="padding:8px 12px;font-size:18px" onclick="openDrawer()">☰</button><div style="min-width:0"><b style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${curFam.familyName} • ${curFam.code}</b><div style="font-size:10px;opacity:.6">E2E Encrypted • Tap ☰ for members</div></div></div><div style="display:flex;gap:6px;flex-shrink:0"><button class="btn btn-black" style="padding:8px 12px;font-size:12px" onclick="startCall(false)">📞 Call</button><button class="btn btn-light" style="padding:8px 12px;font-size:12px" onclick="startCall(true)">📹 Video</button></div></div><div id="messages" style="flex:1;overflow:auto;padding:12px 14px;display:flex;flex-direction:column;background:#fdf6ec"><div style="text-align:center;padding:8px 0"><div style="background:#fff;padding:8px 12px;border-radius:12px;display:inline-block;border:1px solid #eee;font-size:11px">🔒 ${curFam.code} • Live sync • Drawer fixed</div></div><div id="msg-list" style="display:flex;flex-direction:column"></div></div><div style="padding:10px;background:#fff;border-top:1px solid #eee;display:flex;gap:8px;align-items:center"><input id="msg-input" class="input" placeholder="Message as ${curUser?curUser.name:'You'}..." onkeydown="if(event.key==='Enter')sendMsg()" style="flex:1"><button class="btn btn-black" onclick="sendMsg()" style="flex-shrink:0">Send</button></div></div></div>`;
-  const key='famline_msgs_'+curCode; const msgs=JSON.parse(localStorage.getItem(key)||'[]'); msgs.forEach(appendMsg); connectSignaling(); setTimeout(()=>{const c=document.getElementById('messages'); if(c) c.scrollTop=c.scrollHeight;},100); return;
+  root.innerHTML=`<div class="chat-layout"><div class="sidebar" id="sidebar"><div style="padding:14px 16px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center"><div><b>${curFam.familyName}</b><div style="font-size:11px" id="conn-status"><span class="status-dot"></span> Connecting...</div><div style="font-size:11px;opacity:.6">VAPID ✅ ${curFam.code}</div></div><button class="btn btn-light" onclick="closeDrawer()">✕</button></div><div style="flex:1;overflow:auto;padding:12px">${curFam.members.map(m=>`<div class="member-row"><span>${m.emoji}</span><div style="flex:1"><div style="font-weight:700;font-size:13px">${m.name}</div><div style="font-size:11px;opacity:.6">${m.role}</div></div></div>`).join('')}</div></div><div class="main"><div class="topbar"><div style="display:flex;gap:8px;align-items:center"><button class="btn btn-light" onclick="openDrawer()">☰</button><b>${curFam.familyName} • ${curFam.code}</b></div><div style="display:flex;gap:6px"><button class="btn btn-black" onclick="startCall(false)">📞</button><button class="btn btn-light" onclick="startCall(true)">📹</button></div></div><div id="messages" style="flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column"><div id="msg-list" style="display:flex;flex-direction:column"></div></div><div style="padding:10px;background:#fff;border-top:1px solid #eee;display:flex;gap:8px"><input id="msg-input" class="input" placeholder="Message..." onkeydown="if(event.key==='Enter')sendMsg()" style="flex:1"><button class="btn btn-black" onclick="sendMsg()">Send</button></div></div></div>`;
+  const key='famline_msgs_'+curCode;const msgs=JSON.parse(localStorage.getItem(key)||'[]');msgs.forEach(appendMsg);connectSignaling();return;
  }
- const existing=Object.keys(families);
- root.innerHTML=`<div style="max-width:520px;margin:0 auto;padding:16px;overflow:auto;height:100vh"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><h2 style="margin:0;font-size:20px">FamLine</h2><span style="font-size:10px;background:#111;color:#fff;padding:4px 10px;border-radius:999px">FIXED • Drawer • Roles • Stable</span></div>${existing.length?`<div class="card"><h4 style="margin:0 0 10px;font-size:14px">Your families</h4>${existing.map(c=>{const f=families[c];return `<div class="member-row" style="justify-content:space-between"><div style="flex:1;min-width:0"><b>${f.familyName}</b> • <span style="font-size:10px">${f.code}</span><br><span style="font-size:11px;opacity:.6">${f.members.map(m=>m.name).join(', ')}}</span></div><button class="btn btn-orange" style="padding:8px 14px" onclick="setCurrentCode('${c}');const fam=getFamilies()['${c}'];const cur=getCurrentUser();if(!cur)setCurrentUser({name:fam.members[0].name,role:fam.members[0].role});view='chat';render()">Open</button></div>`}).join('')}<button onclick="if(confirm('Clear all?')){localStorage.clear();location.reload()}" style="background:none;border:0;color:#ef4444;font-size:12px;margin-top:8px">Clear all</button></div>`:''}<div class="card"><h1 style="margin:0 0 6px;font-size:20px">Your Family, Private & Secure</h1><p style="opacity:.7;font-size:12px;margin:0 0 16px;line-height:1.5">No cloud. Each device joins as its own name. Fixed drawer, roles, stable calls.</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button class="btn btn-black" onclick="view='create';render()">+ Create Family</button><button class="btn" style="background:#fff;border:2px solid #111" onclick="view='join';render()">↪ Join Family</button></div></div>${view==='create'?`<div class="card"><h3 style="margin:0 0 4px;font-size:16px">Create Family - Nehme</h3><label style="font-size:10px;font-weight:700">FAMILY NAME</label><input id="c-fname" class="input" value="Nehme" style="margin:5px 0 10px"><div>${createMembers.map((m,i)=>`<div class="member-row"><span style="font-size:18px">${m.emoji}</span><input class="input" style="flex:1;padding:8px" value="${m.name}" onchange="createMembers[${i}].name=this.value"><select class="input" style="width:100px;padding:8px" onchange="createMembers[${i}].role=this.value"><option ${m.role==='Father'?'selected':''}>Father</option><option ${m.role==='Mother'?'selected':''}>Mother</option><option ${m.role==='Son'?'selected':''}>Son</option><option ${m.role==='Daughter'?'selected':''}>Daughter</option></select><button onclick="createMembers.splice(${i},1);render()" style="border:0;background:#fee2e2;padding:6px 8px;border-radius:8px">✕</button></div>`).join('')}</div><button class="btn btn-light" style="width:100%;margin:8px 0;font-size:12px" onclick="createMembers.push({name:'',role:'Son',emoji:'👤'});render()">+ Add Member</button><label style="font-size:10px;font-weight:700">FAMILY PASSWORD</label><input id="c-pwd" class="input" type="password" placeholder="Secret only family knows" style="margin:5px 0 10px"><label style="font-size:10px;font-weight:700">YOUR NAME ON THIS DEVICE</label><input id="c-myname" class="input" value="Abdallah" style="margin:5px 0 12px"><button class="btn btn-black" style="width:100%" onclick="doCreate()">Create → Get Invite Link</button><div id="c-result" style="display:none;margin-top:12px"></div></div>`:''}${view==='join'?`<div class="card" style="border:2px solid #f97316"><h3 style="margin:0 0 6px;font-size:16px">Join Family</h3><p style="font-size:11px;opacity:.7;margin:0 0 12px">Code + Password + Your Name + Role. Each phone as itself.</p><label style="font-size:10px;font-weight:700">FAMILY CODE</label><input id="j-code" class="input" placeholder="FAM-XXXX-XXXX" value="${joinPrefillCode}" style="text-transform:uppercase;margin:5px 0 10px"><label style="font-size:10px;font-weight:700">FAMILY PASSWORD</label><input id="j-pwd" class="input" type="password" placeholder="Family password" style="margin:5px 0 10px"><label style="font-size:10px;font-weight:700">YOUR NAME</label><input id="j-name" class="input" placeholder="Talia / Nado / Abdallah" style="margin:5px 0 10px"><label style="font-size:10px;font-weight:700">YOUR ROLE</label><select id="j-role" class="input" style="margin:5px 0 14px"><option>Father</option><option>Mother</option><option>Son</option><option selected>Daughter</option></select><button class="btn btn-black" style="width:100%" onclick="doJoin()">Join as Me → Enter Chat</button><div id="j-err" style="color:#ef4444;font-size:12px;margin-top:8px;display:none"></div></div>`:''}</div>`;
+ root.innerHTML=`<div style="max-width:520px;margin:0 auto;padding:16px"><div class="card"><h1 style="font-size:20px;margin:0">FamLine FINAL - VAPID ✅</h1><p style="font-size:12px;opacity:.7">No pc fixed • Mic island fixed • Caller-name • VAPID included</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button class="btn btn-black" onclick="view='create';render()">+ Create</button><button class="btn btn-light" style="border:2px solid #111" onclick="view='join';render()">Join</button></div></div>${view==='create'?`<div class="card"><h3>Create Family</h3><input id="c-fname" class="input" value="Nehme" style="margin:5px 0 10px"><div>${createMembers.map((m,i)=>`<div class="member-row"><span>${m.emoji}</span><input class="input" style="flex:1" value="${m.name}" onchange="createMembers[${i}].name=this.value"><select class="input" style="width:100px" onchange="createMembers[${i}].role=this.value"><option ${m.role==='Father'?'selected':''}>Father</option><option ${m.role==='Mother'?'selected':''}>Mother</option><option ${m.role==='Son'?'selected':''}>Son</option><option ${m.role==='Daughter'?'selected':''}>Daughter</option></select></div>`).join('')}</div><input id="c-pwd" class="input" type="password" placeholder="Password" style="margin:10px 0"><input id="c-myname" class="input" value="Abdallah" style="margin:5px 0 12px"><button class="btn btn-black" style="width:100%" onclick="doCreate()">Create</button><div id="c-result" style="display:none;margin-top:12px"></div></div>`:''}${view==='join'?`<div class="card" style="border:2px solid #f97316"><h3>Join Family</h3><input id="j-code" class="input" placeholder="FAM-XXXX-XXXX" style="margin:5px 0 10px"><input id="j-pwd" class="input" type="password" placeholder="Password" style="margin:5px 0 10px"><input id="j-name" class="input" placeholder="Your name" style="margin:5px 0 10px"><select id="j-role" class="input" style="margin:5px 0 14px"><option>Father</option><option>Mother</option><option>Son</option><option selected>Daughter</option></select><button class="btn btn-black" style="width:100%" onclick="doJoin()">Join</button><div id="j-err" style="color:red;font-size:12px;display:none"></div></div>`:''}</div>`;
 }
 function doCreate(){
  const famName=document.getElementById('c-fname').value.trim()||'Nehme';const pwd=document.getElementById('c-pwd').value.trim();const myName=document.getElementById('c-myname').value.trim()||createMembers[0].name;
- if(!pwd){alert('Set password!');return;}if(createMembers.some(m=>!m.name.trim())){alert('Fill names');return;}
- const code=genCode();const fam={familyName:famName,name:famName,code:code,familyCode:code,members:createMembers,password:pwd,createdAt:Date.now()};
- const all=getFamilies();all[code]=fam;saveFamilies(all);setCurrentCode(code);setCurrentUser({name:myName,role:createMembers.find(m=>m.name===myName)?.role||'Father'});localStorage.setItem('famline_family_v2',JSON.stringify(fam));
+ if(!pwd){alert('Set password');return;}
+ const code=genCode();const fam={familyName:famName,code:code,members:createMembers,password:pwd};
+ const all=getFamilies();all[code]=fam;saveFamilies(all);setCurrentCode(code);setCurrentUser({name:myName,role:createMembers.find(m=>m.name===myName)?.role||'Father'});
  const b64=btoa(unescape(encodeURIComponent(JSON.stringify({n:famName,m:fam.members,c:code}))));const invite=location.origin+location.pathname+'#invite='+b64;
- document.getElementById('c-result').style.display='block';document.getElementById('c-result').innerHTML=`<div style="background:#f0fdf4;border:1px solid #bbf7d0;padding:10px;border-radius:12px;font-size:12px"><b>${famName} created! Code: ${code}</b><br><br><input class="input" style="font-size:11px;padding:8px" value="${invite}" readonly onclick="this.select();navigator.clipboard.writeText(this.value)"><br><br><button class="btn btn-black" style="width:100%" onclick="view='chat';render()">Enter Chat →</button></div>`;
+ document.getElementById('c-result').style.display='block';document.getElementById('c-result').innerHTML=`<div style="background:#f0fdf4;padding:10px;border-radius:12px"><b>${code} - VAPID ✅</b><br><input class="input" value="${invite}" readonly onclick="this.select()"><br><br><button class="btn btn-black" style="width:100%" onclick="view='chat';render()">Enter Chat</button></div>`;
 }
 function doJoin(){
- const code=(document.getElementById('j-code').value||'').trim().toUpperCase();const pwd=(document.getElementById('j-pwd').value||'').trim();const myName=(document.getElementById('j-name').value||'').trim();const role=document.getElementById('j-role').value;const err=document.getElementById('j-err');
- if(!code||!pwd||!myName){err.style.display='block';err.textContent='Fill code, password, name';return;}
- let all=getFamilies();let fam=all[code];let inviteData=null;if(location.hash.includes('invite=')){try{const b64=location.hash.split('invite=')[1];inviteData=JSON.parse(decodeURIComponent(escape(atob(b64))));}catch{}}
- if(!fam){
-  if(inviteData){const mems=(inviteData.m||[]).map(n=>typeof n==='string'?{name:n,role:'Member',emoji:'👤'}:n);if(!mems.find(x=>x.name.toLowerCase()===myName.toLowerCase()))mems.push({name:myName,role:role,emoji:role==='Father'?'👨':role==='Mother'?'👩':role==='Son'?'👦':'👧'});fam={familyName:inviteData.n||'Nehme',name:inviteData.n||'Nehme',code:code,familyCode:code,members:mems.length?mems:[{name:'Abdallah',role:'Father',emoji:'👨'},{name:'Nado',role:'Mother',emoji:'👩'},{name:'Talia',role:'Daughter',emoji:'👧'},{name:'Mohamad',role:'Son',emoji:'👦'},{name:'Perla',role:'Daughter',emoji:'👧'}],password:pwd,createdAt:Date.now()};}
-  else{fam={familyName:'Nehme',name:'Nehme',code:code,familyCode:code,members:[{name:'Abdallah',role:'Father',emoji:'👨'},{name:'Nado',role:'Mother',emoji:'👩'},{name:'Talia',role:'Daughter',emoji:'👧'},{name:'Mohamad',role:'Son',emoji:'👦'},{name:'Perla',role:'Daughter',emoji:'👧'}],password:pwd,createdAt:Date.now()};if(!fam.members.find(x=>x.name.toLowerCase()===myName.toLowerCase()))fam.members.push({name:myName,role:role,emoji:'👤'});}
-  all[code]=fam;saveFamilies(all);
- }else{
-  if(fam.password&&fam.password!==pwd){err.style.display='block';err.textContent='Wrong password';return;}
-  if(!fam.members.find(x=>x.name.toLowerCase()===myName.toLowerCase())){fam.members.push({name:myName,role:role,emoji:role==='Father'?'👨':role==='Mother'?'👩':role==='Son'?'👦':'👧'});all[code]=fam;saveFamilies(all);}
- }
- localStorage.setItem('famline_family_v2',JSON.stringify(fam));setCurrentCode(code);setCurrentUser({name:myName,role:role});history.replaceState(null,'',location.pathname);view='chat';render();
- setTimeout(()=>{initPWA(); if(Notification.permission==='default'){Notification.requestPermission().then(p=>{if(p==='granted')initPWA();})}},500);
+ const code=(document.getElementById('j-code').value||'').trim().toUpperCase();const pwd=(document.getElementById('j-pwd').value||'').trim();const myName=(document.getElementById('j-name').value||'').trim();const role=document.getElementById('j-role').value;
+ let all=getFamilies();let fam=all[code];
+ if(!fam){fam={familyName:'Nehme',code:code,members:[{name:'Abdallah',role:'Father',emoji:'👨'},{name:'Nado',role:'Mother',emoji:'👩'},{name:'Talia',role:'Daughter',emoji:'👧'},{name:'Mohamad',role:'Son',emoji:'👦'},{name:'Perla',role:'Daughter',emoji:'👧'}],password:pwd};if(!fam.members.find(x=>x.name===myName))fam.members.push({name:myName,role:role,emoji:'👤'});all[code]=fam;saveFamilies(all);}
+ else{if(fam.password&&fam.password!==pwd){document.getElementById('j-err').style.display='block';document.getElementById('j-err').textContent='Wrong password';return;}if(!fam.members.find(x=>x.name.toLowerCase()===myName.toLowerCase())){fam.members.push({name:myName,role:role,emoji:'👤'});all[code]=fam;saveFamilies(all);}}
+ setCurrentCode(code);setCurrentUser({name:myName,role:role});view='chat';render();
 }
 function sendMsg(){const input=document.getElementById('msg-input');if(!input||!input.value.trim())return;const text=input.value.trim();const cur=getCurrentUser()||{name:'You',role:''};const code=getCurrentCode();const key='famline_msgs_'+code;const msgs=JSON.parse(localStorage.getItem(key)||'[]');const msg={sender:cur.name,role:cur.role,text:text,ts:Date.now()};msgs.push(msg);localStorage.setItem(key,JSON.stringify(msgs));appendMsg(msg);input.value='';if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'chat',familyCode:code,sender:msg.sender,role:msg.role,text:msg.text,ts:msg.ts}));}
-(function(){
- const p=new URLSearchParams(location.search);
- const curCode=getCurrentCode();const fams=getFamilies();
- if(curCode&&fams[curCode]){
-  view='chat';
-  if(p.has('join')||location.hash.includes('invite=')){history.replaceState(null,'',location.pathname);}
-  render();initPWA();return;
- }
- if(p.has('join')){joinPrefillCode=p.get('join').toUpperCase();view='join'}
- if(location.hash.includes('invite=')){try{const b64=location.hash.split('invite=')[1];const data=JSON.parse(decodeURIComponent(escape(atob(b64))));joinPrefillCode=data.c||'';view='join'}catch{}}
- render();initPWA();
-})();
+(function(){const curCode=getCurrentCode();const fams=getFamilies();if(curCode&&fams[curCode]){view='chat';render();return;}render();})();
 </script></body></html>
