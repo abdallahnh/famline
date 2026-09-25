@@ -1,6 +1,3 @@
-
-
-
 import { WebSocketServer } from 'ws';
 import webpush from 'web-push';
 
